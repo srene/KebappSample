@@ -95,15 +95,15 @@ public class DiscoverActivity extends Activity implements
 
         manager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
         channel = manager.initialize(this, getMainLooper(), null);
-        startRegistrationAndDiscovery();
+      //  startRegistrationAndDiscovery();
 
         peersList = new MyListFragment();
         getFragmentManager().beginTransaction()
                 .add(R.id.container_root, peersList, "services").commit();
 
 
-        receiver = new WiFiDirectBroadcastReceiver(manager, channel, this);
-        registerReceiver(receiver, intentFilter);
+       // receiver = new WiFiDirectBroadcastReceiver(manager, channel, this);
+       // registerReceiver(receiver, intentFilter);
     }
 
 
@@ -144,7 +144,7 @@ public class DiscoverActivity extends Activity implements
     @Override
     public void onPause() {
         super.onPause();
-        unregisterReceiver(receiver);
+      //  unregisterReceiver(receiver);
     }
 
     private void discoverService() {

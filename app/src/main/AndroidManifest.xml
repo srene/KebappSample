@@ -8,6 +8,9 @@ package="ucl.kebappsample" >
     android:name="android.permission.CHANGE_WIFI_STATE"
     android:required="true" />
 <uses-permission
+    android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"
+    android:required="true" />
+    <uses-permission
     android:name="android.permission.INTERNET"
     android:required="true" />
 <uses-permission
@@ -49,6 +52,8 @@ package="ucl.kebappsample" >
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
     </activity>
+    <service android:name=".HelloService"
+        android:exported="false"/>
 </application>
 
 </manifest>

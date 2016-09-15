@@ -17,6 +17,7 @@ package ucl.kebappsample;
  * limitations under the License.
  */
 
+import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -47,11 +48,14 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
     private WifiP2pManager manager;
     private Channel channel;
-    private DiscoverActivity activity;
+    private Service service;
 
     private KebappApplication app;
 
     private WifiP2pDevice myself;
+
+    public static final String TAG = "WiFiDirect";
+
 
     String oAddress;
     String localIP;
@@ -59,15 +63,15 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
     /**
      * @param manager WifiP2pManager system service
      * @param channel Wifi p2p channel
-     * @param activity activity associated with the receiver
+     * @param service activity associated with the receiver
      */
     public WiFiDirectBroadcastReceiver(WifiP2pManager manager, Channel channel,
-                                       DiscoverActivity activity) {
+                                       Service service) {
         super();
         this.manager = manager;
         this.channel = channel;
-        this.activity = activity;
-        app = (KebappApplication) activity.getApplication();
+        this.service = service;
+        //app = (KebappApplication) activity.getApplication();
 
     }
 
@@ -79,61 +83,53 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
-        Log.d(DiscoverActivity.TAG, action);
+        Log.d(HelloService.TAG, action);
         if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
-
+            Log.d(HelloService.TAG, "WIFI_P2P_CONNECTION_CHANGED_ACTION received");
             if (manager == null) {
                 return;
             }
-            Log.i(DiscoverActivity.TAG, "Connection Changed");
 
-            if(manager != null) {
-                NetworkInfo networkInfo = (NetworkInfo)intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
-                if(networkInfo.isConnected()) {
-                    RequestOwner task = new RequestOwner();
-                    task.execute();
-
-                    MenuActivity.wifiDirectConnected = true;
-                }
-                else {
-                    MenuActivity.wifiDirectConnected = false;
-                }
-            }
             NetworkInfo networkInfo = (NetworkInfo) intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
 
             if (networkInfo.isConnected()) {
 
                 // we are connected with the other device, request connection
                 // info to find group owner IP
-                Log.d(DiscoverActivity.TAG,
+                Log.d(HelloService.TAG,
                         "Connected to p2p network. Requesting network details");
-                //manager.requestConnectionInfo(channel, (WifiP2pManager.ConnectionInfoListener) activity);
+                manager.requestConnectionInfo(channel, (WifiP2pManager.ConnectionInfoListener) service);
                 //manager.requestPeers(channel, (PeerListListener) activity);
 
             } else {
                 // It's a disconnect
             }
         } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
+            Log.d(HelloService.TAG, "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION received");
 
-          //  WifiP2pDevice device = (WifiP2pDevice) intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
+            WifiP2pDevice device = (WifiP2pDevice) intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
 
-            //MyListFragment fragment = (MyListFragment) DiscoverActivity.getFragmentManager()
+            //MyListFragment fragment = (MyListFragment) MainActivity.getFragmentManager()
             //        .findFragmentByTag("services");
-         //   DiscoverActivity.peersList;
-            myself = (WifiP2pDevice) intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
+            //   MainActivity.peersList;
 
-            Log.d(DiscoverActivity.TAG, "Device status -" + myself.status);
+            Log.d(HelloService.TAG, "Device status -" + device.status);
 
         }    else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
+            Log.d(HelloService.TAG, "WIFI_P2P_PEERS_CHANGED_ACTION received");
 
             // Request available peers from the wifi p2p manager. This is an
             // asynchronous call and the calling activity is notified with a
             // callback on PeerListListener.onPeersAvailable()
             if (manager != null) {
-     //           manager.requestPeers(channel, DiscoverActivity.peerListListener);
-                  manager.requestPeers(channel, (PeerListListener) activity);
+                //           manager.requestPeers(channel, MainActivity.peerListListener);
+                manager.requestPeers(channel, (PeerListListener) service);
             }
-            Log.d(DiscoverActivity.TAG, "P2P peers changed");
+            Log.d(HelloService.TAG, "P2P peers changed");
+        } else if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
+
+            Log.d(HelloService.TAG, "WIFI_P2P_STATE_CHANGED_ACTION received");
+
         }
 
 
@@ -155,9 +151,9 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 }
             }
         } catch (SocketException ex) {
-            Log.e(DiscoverActivity.TAG, "getLocalIPAddress()", ex);
+            Log.e(TAG, "getLocalIPAddress()", ex);
         } catch (NullPointerException ex) {
-            Log.e(DiscoverActivity.TAG, "getLocalIPAddress()", ex);
+            Log.e(TAG, "getLocalIPAddress()", ex);
         }
         return null;
     }
@@ -184,7 +180,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
         @Override
         protected Void doInBackground(Void... params) {
 
-            Log.i(DiscoverActivity.TAG, "Start asyntask");
+            Log.i(WiFiDirectBroadcastReceiver.TAG, "Start asyntask");
 
             manager.requestConnectionInfo(channel, new WifiP2pManager.ConnectionInfoListener() {
                 @Override
@@ -204,21 +200,21 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                         if (!isOwner) {
                             localIP = getDottedDecimalIP(getLocalIPAddress());
 
-                            Log.i(DiscoverActivity.TAG, "NON-owner LOGIC DONE");
+                            Log.i(WiFiDirectBroadcastReceiver.TAG, "NON-owner LOGIC DONE");
                         } else {
-                            Log.i(DiscoverActivity.TAG, "i'm  the owner");
+                            Log.i(WiFiDirectBroadcastReceiver.TAG, "i'm  the owner");
                             localIP = oAddress;
-                            Log.i(DiscoverActivity.TAG, "OWNER LOGIC DONE");
+                            Log.i(WiFiDirectBroadcastReceiver.TAG, "OWNER LOGIC DONE");
 
                         }
                         app.setOwnerAddress(oAddress);
-                        Log.i(DiscoverActivity.TAG, "Owner Address: " + oAddress);
+                        Log.i(WiFiDirectBroadcastReceiver.TAG, "Owner Address: " + oAddress);
                         app.setMyAddress(localIP);
-                        Log.i(DiscoverActivity.TAG, "My Address:" + localIP);
+                        Log.i(WiFiDirectBroadcastReceiver.TAG, "My Address:" + localIP);
                         if(oAddress.equals(localIP)) {
                             app.addDevice("/"+localIP, myself.deviceName);
                         }
-                        Log.i(DiscoverActivity.TAG, "Register status: " + returnData);
+                        Log.i(WiFiDirectBroadcastReceiver.TAG, "Register status: " + returnData);
                        // activity.StartRequest();
 
 
@@ -227,7 +223,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                         //fragment.updateDisplayContent("myself", localIP, returnData, isOwner);
                     } catch (Exception e) {
                         e.printStackTrace();
-                        Log.e(DiscoverActivity.TAG, e.toString());
+                        Log.e(WiFiDirectBroadcastReceiver.TAG, e.toString());
                     }
                 }
             });

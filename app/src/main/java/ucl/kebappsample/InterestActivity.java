@@ -2,13 +2,18 @@ package ucl.kebappsample;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.net.wifi.p2p.WifiP2pManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.net.wifi.WifiManager;
+import android.net.DhcpInfo;
 
 import net.named_data.jndn.Data;
 import net.named_data.jndn.Face;
@@ -28,6 +33,7 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.net.*;
 
 public class InterestActivity extends Activity {
 
@@ -35,23 +41,23 @@ public class InterestActivity extends Activity {
 
     private TextView statusTxtView;
     private TextView resultTxtView;
-    private Button button;
-    private EditText source,dest;
+    private Button button, button2;
+    private EditText source, dest;
+    private CheckBox enableCheck;
 
     /**
      * ATTENTION: This was auto-generated to implement the App Indexing API.
      * See https://g.co/AppIndexing/AndroidStudio for more information.
      */
-   // private GoogleApiClient client;
-
+    // private GoogleApiClient client;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.dssa);
         statusTxtView = (TextView) findViewById(R.id.status_text);
         resultTxtView = (TextView) findViewById(R.id.result);
-        source = (EditText)findViewById(R.id.source);
-        dest = (EditText)findViewById(R.id.dest);
+        source = (EditText) findViewById(R.id.source);
+        dest = (EditText) findViewById(R.id.dest);
 
         button = (Button) this.findViewById(R.id.button);
 
@@ -60,6 +66,38 @@ public class InterestActivity extends Activity {
             public void onClick(View v) {
                 clearStatus();
                 StartRequest();
+            }
+        });
+
+
+        enableCheck = (CheckBox) this.findViewById(R.id.checkBox);
+
+        enableCheck.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                Log.d(TAG,"Checkbox listen");
+
+                if (((CheckBox) v).isChecked()) {
+                    Log.d(TAG,"Checkbox is checked");
+                    Intent intent = new Intent(InterestActivity.this, HelloService.class);
+                    startService(intent);
+                } else {
+                    Log.d(TAG,"Checkbox is not checked");
+                    Intent intent = new Intent(InterestActivity.this, HelloService.class);
+                    stopService(intent);
+                }
+
+            }
+        });
+
+        button2 = (Button) this.findViewById(R.id.button2);
+        button2.setEnabled(true);
+        button2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(InterestActivity.this, DiscoverActivity.class);
+                startActivity(intent);
             }
         });
     }
@@ -84,9 +122,35 @@ public class InterestActivity extends Activity {
         resultTxtView.setText("");
     }
 
+    private InetAddress getBroadcastAddress() throws IOException {
+        WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        DhcpInfo dhcp = wifi.getDhcpInfo();
+        // handle null somehow
+
+        int broadcast = (dhcp.ipAddress & dhcp.netmask) | ~dhcp.netmask;
+        byte[] quads = new byte[4];
+        for (int k = 0; k < 4; k++)
+            quads[k] = (byte) ((broadcast >> k * 8) & 0xFF);
+        return InetAddress.getByAddress(quads);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Intent intent = new Intent(InterestActivity.this, KebappService.class);
+        stopService(intent);
+    }
+
     private void StartRequest() {
         Log.d(TAG,"Start request");
         appendStatus("Start request");
+        /*try {
+            Log.d(TAG,"Address " + getBroadcastAddress());
+        } catch (java.io.IOException e) {
+        Log.e(RequestDeviceListTask.TAG, "Failed get address");
+
+        }
+        */
         RequestDeviceListTask task = new RequestDeviceListTask((KebappApplication) getApplication(), getApplicationContext());
         task.execute();
     }
@@ -104,6 +168,9 @@ public class InterestActivity extends Activity {
         public RequestDeviceListTask(KebappApplication application, Context context) {
             this.app = application;
             this.context = context;
+
+            Log.d(TAG,"Start request");
+
         }
         @Override
         protected ArrayList<DeviceInfo> doInBackground(String... params) {
@@ -113,18 +180,20 @@ public class InterestActivity extends Activity {
                 KeyChain keyChain = app.keyChain;
                 mFace = new Face("localhost");
                 mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
+                Log.d(TAG,"Background request");
 
                 // Invalid input
                 /*if(params.length < 1) {
                     Log.e(RequestDeviceListTask.TAG, "No owner address!");
-                    return null;
+                    return null
                 }*/
 
                 KebappApplication app = (KebappApplication) getApplication();
                 String oAddress = app.getOwnerAddress();
+                Log.i(RequestDeviceListTask.TAG, "Address "+oAddress);
                 Nfdc nfdc = new Nfdc();
-                int faceId = nfdc.faceCreate("udp://" + oAddress);
-                nfdc.ribRegisterPrefix(new Name("/kebapp"), faceId, 10, true, false);
+                int faceId = nfdc.faceCreate("udp://192.168.49.255");
+                nfdc.ribRegisterPrefix(new Name("/kebapp/maps"), faceId, 10, true, false);
                 nfdc.shutdown();
                 Log.i(RequestDeviceListTask.TAG, "Face created");
                 Interest interest = new Interest(new Name("/kebapp/maps/"+source.getText().toString()+"/"+dest.getText().toString()));
@@ -179,7 +248,7 @@ public class InterestActivity extends Activity {
                 Log.e(RequestDeviceListTask.TAG, "Encoding Error");
             } catch (Exception e) {
                 Log.e(RequestDeviceListTask.TAG, e.toString());
-            }
+            }*/
             return deviceInfos;
         }
 

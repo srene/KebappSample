@@ -63,7 +63,7 @@ public class KebappService extends Service implements
 
     int devices = 0;
 
-    public static final String TAG = "HelloService";
+    public static final String TAG = "KebappService";
 
     // TXT RECORD properties
     public static final String TXTRECORD_PROP_AVAILABLE = "available";
@@ -115,36 +115,17 @@ public class KebappService extends Service implements
 
                 Log.i(TAG, "Service onStartCommand thread");
 
-
                 intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
                 intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
                 intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
                 intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
 
                 manager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
-                channel = manager.initialize(HelloService.this, getMainLooper(), null);
+                channel = manager.initialize(KebappService.this, getMainLooper(), null);
                 startRegistrationAndDiscovery();
 
-
-                //Your logic that service will perform will be placed here
-                //In this example we are just looping and waits for 1000 milliseconds in each loop.
-                /*for (int i = 0; i < 5; i++) {
-                    try {
-                        Thread.sleep(1000);
-                    } catch (Exception e) {
-                    }
-
-                    if(isRunning){
-                        Log.i(TAG, "Service running");
-                    }
-                }*/
-
-                //Stop service once it finishes its task
-                //stopSelf();
             }
         }).start();
-
-
 
         return Service.START_STICKY;
     }
@@ -341,32 +322,6 @@ public class KebappService extends Service implements
 
                             Log.i(TAG, "Start produce service thread");
 
-                            //isPublic = intent.getBooleanExtra("isPublic", true);
-                            //Log.i("Produce Serive", "" + isPublic);
-                            //filePaths = intent.getStringArrayListExtra("filePath");
-                            // for(String str : filePaths) {
-                            //     Log.i("Produce Service", str);
-                            //     String[] strs = str.split("/");
-                            //     fileMap.put(strs[strs.length - 1], str);
-                            // }
-                            // Log.i("Produce Service", fileMap.toString());
-                            // passcode = intent.getStringExtra("passcode");
-                            // mAddress = intent.getStringExtra("mAddress");
-                            // oAddress = intent.getStringExtra("oAddress");
-                            // Only avalible when the device is the group owner
-                            // if(mAddress.equals(oAddress))
-                            //    deviceInfos = intent.getParcelableArrayListExtra("deviceList");
-
-                            // Log.i("Produce Service", deviceInfos.toString());
-
-                            // Read in all images here, store in a hashmap for later retrieve
-
-
-
-
-
-                            //
-                            //
                             KeyChain keyChain = buildTestKeyChain();
                             mFace = new Face("localhost");
                             mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
@@ -391,9 +346,7 @@ public class KebappService extends Service implements
                                     //Toast.makeText(getApplicationContext(), "Interest Received: " + interest.getName().toUri(), Toast.LENGTH_LONG).show();
                                     try{
                                         JSONObject jsonObject = getJSONObjectFromURL(urlString);
-
                                         JSONArray routes = jsonObject.getJSONArray("routes");
-
                                         JSONObject legs = routes.getJSONObject(0).getJSONArray("legs").getJSONObject(0).getJSONObject("distance");
 
                                         String content = legs.toString();
@@ -412,14 +365,6 @@ public class KebappService extends Service implements
                                         e.printStackTrace();
                                     }
 
-
-                         /*   } catch (EncodingException e) {
-                                Log.e(TAG, "Failed to encode");
-                            } catch (IOException e) {
-                                Log.e(TAG, "Failed to send the data");
-                            } catch (JSONException e) {
-                                Log.e(TAG, "Failed to construct the json object");
-                            }*/
                                 }
                             }, new OnRegisterFailed() {
                                 @Override
