@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.v4.os.AsyncTaskCompat;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -134,11 +135,19 @@ public class InterestActivity extends Activity {
         return InetAddress.getByAddress(quads);
     }
 
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        Intent intent = new Intent(InterestActivity.this, KebappService.class);
+        stopService(intent);
+    }
     @Override
     public void onDestroy() {
         super.onDestroy();
         Intent intent = new Intent(InterestActivity.this, KebappService.class);
         stopService(intent);
+        System.exit(0);
     }
 
     private void StartRequest() {
@@ -151,6 +160,10 @@ public class InterestActivity extends Activity {
 
         }
         */
+        //SenderMulticastAsyncTask task = new SenderMulticastAsyncTask();
+        //AsyncTaskCompat.executeParallel( task,null);
+
+        //task.execute();
         RequestDeviceListTask task = new RequestDeviceListTask((KebappApplication) getApplication(), getApplicationContext());
         task.execute();
     }
@@ -190,13 +203,14 @@ public class InterestActivity extends Activity {
 
                 KebappApplication app = (KebappApplication) getApplication();
                 String oAddress = app.getOwnerAddress();
-                Log.i(RequestDeviceListTask.TAG, "Address "+oAddress);
-                Nfdc nfdc = new Nfdc();
-                int faceId = nfdc.faceCreate("udp://192.168.49.255");
-                nfdc.ribRegisterPrefix(new Name("/kebapp/maps"), faceId, 10, true, false);
-                nfdc.shutdown();
+               // if(oAddress==app.getMyAddress())return deviceInfos;
+               // Log.i(RequestDeviceListTask.TAG, "Address "+oAddress);
+               // Nfdc nfdc = new Nfdc();
+               // int faceId = nfdc.faceCreate("udp://"+app.getOwnerAddress());
+               // nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 10, true, false);
+               // nfdc.shutdown();
                 Log.i(RequestDeviceListTask.TAG, "Face created");
-                Interest interest = new Interest(new Name("/kebapp/maps/"+source.getText().toString()+"/"+dest.getText().toString()));
+                Interest interest = new Interest(new Name("/kebapp/maps/routefinder/"+source.getText().toString()+"/"+dest.getText().toString()));
                 interest.setInterestLifetimeMilliseconds(10000);
                 Log.i(RequestDeviceListTask.TAG, "Interest created");
 
@@ -248,7 +262,7 @@ public class InterestActivity extends Activity {
                 Log.e(RequestDeviceListTask.TAG, "Encoding Error");
             } catch (Exception e) {
                 Log.e(RequestDeviceListTask.TAG, e.toString());
-            }*/
+            }
             return deviceInfos;
         }
 
@@ -267,6 +281,59 @@ public class InterestActivity extends Activity {
             keyChain.getIdentityManager().setDefaultIdentity(new Name("/test/identity"));
         }
         return keyChain;
+    }
+
+    public class SenderMulticastAsyncTask extends AsyncTask<Void, Integer, String> {
+
+        public SenderMulticastAsyncTask() {
+
+
+            Log.d(TAG,"Start request");
+
+        }
+        @Override
+        protected String doInBackground(Void... params) {
+
+            int port =5454;
+
+            InetAddress group = null;
+            DatagramSocket socket = null;
+            Log.d("Send", "Sending Packet1");
+
+            try {
+                Log.d("Send", "Sending Packet2");
+
+                group = InetAddress.getByName("192.168.49.255");
+            } catch (UnknownHostException e) {
+                Log.d("Send", "Sending Packet3");
+                // TODO Auto-generated catch block
+               // socket.close();
+                e.printStackTrace();
+            }
+            Log.d("Send", "Sending Packet4");
+
+            //Sending to Multicast Group
+            String message_to_send ="Test";
+            byte[] buf = message_to_send.getBytes();
+            DatagramPacket packet = new DatagramPacket(buf, buf.length, group, port);
+            try {
+                socket= new DatagramSocket();
+                socket.send(packet);
+                Log.d("Send", "Sending Packet");
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                socket.close();
+                e.printStackTrace();
+            }
+
+            socket.close();
+            return "";
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            //do whatever ...
+        }
     }
 
 }

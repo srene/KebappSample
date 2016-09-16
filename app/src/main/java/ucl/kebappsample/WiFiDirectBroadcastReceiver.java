@@ -66,12 +66,12 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
      * @param service activity associated with the receiver
      */
     public WiFiDirectBroadcastReceiver(WifiP2pManager manager, Channel channel,
-                                       Service service) {
+                                       Service service,KebappApplication app) {
         super();
         this.manager = manager;
         this.channel = channel;
         this.service = service;
-        //app = (KebappApplication) activity.getApplication();
+        this.app = app;
 
     }
 
@@ -99,6 +99,9 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 Log.d(HelloService.TAG,
                         "Connected to p2p network. Requesting network details");
                 manager.requestConnectionInfo(channel, (WifiP2pManager.ConnectionInfoListener) service);
+                RequestOwner task = new RequestOwner();
+                task.execute();
+
                 //manager.requestPeers(channel, (PeerListListener) activity);
 
             } else {
@@ -211,9 +214,9 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                         Log.i(WiFiDirectBroadcastReceiver.TAG, "Owner Address: " + oAddress);
                         app.setMyAddress(localIP);
                         Log.i(WiFiDirectBroadcastReceiver.TAG, "My Address:" + localIP);
-                        if(oAddress.equals(localIP)) {
-                            app.addDevice("/"+localIP, myself.deviceName);
-                        }
+                       // if(oAddress.equals(localIP)) {
+                      //      app.addDevice("/"+localIP, myself.deviceName);
+                      //  }
                         Log.i(WiFiDirectBroadcastReceiver.TAG, "Register status: " + returnData);
                        // activity.StartRequest();
 
