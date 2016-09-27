@@ -491,19 +491,20 @@ public class HelloService extends Service implements
                     mFace = new Face("localhost");
                     mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
 
-                    //KebappApplication app = (KebappApplication) getApplication();
+                    KebappApplication app = (KebappApplication) getApplication();
                     //String oAddress = app.getOwnerAddress();
                     //Log.i(TAG, "Address " + oAddress + " " + app.getMyAddress());
                     //if(oAddress!=app.getMyAddress()) {
-                    Log.i(TAG, "Address " + info.groupOwnerAddress);
                     Nfdc nfdc = new Nfdc();
                     int faceId = 0;
-                    if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
-                            //else faceId = nfdc.faceCreate("udp://192.168.49.200");
+                    nfdc.faceCreate("udp4://192.168.49.255");
+                    //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
+                    //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
                     nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
                     nfdc.shutdown();
                     //}
                     Log.i(TAG, "My Address is: " + mAddress);
+                    Log.i(TAG, "Address " + info.groupOwnerAddress + " " + info.isGroupOwner);
 
                     // Register the prefix with the device's address
                     mFace.registerPrefix(new Name("/kebapp/maps"), new OnInterest() {

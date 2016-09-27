@@ -212,7 +212,7 @@ public class InterestActivity extends Activity {
                 Log.i(RequestDeviceListTask.TAG, "Face created");
                 Interest interest = new Interest(new Name("/kebapp/maps/routefinder/"+source.getText().toString()+"/"+dest.getText().toString()));
                 interest.setInterestLifetimeMilliseconds(10000);
-                Log.i(RequestDeviceListTask.TAG, "Interest created");
+                Log.i(RequestDeviceListTask.TAG, "Interest created "+ interest.getName().get(3).toEscapedString());
 
                 mFace.expressInterest(interest, new OnData() {
                     @Override
