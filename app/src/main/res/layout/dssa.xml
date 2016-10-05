@@ -2,6 +2,7 @@
 
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical" >
@@ -28,7 +29,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textAppearance="?android:attr/textAppearanceLarge"
-            android:text="Find the distance"
+            android:text="Find the route"
             android:id="@+id/title"
             android:layout_gravity="center_horizontal" />
     </LinearLayout>
@@ -47,7 +48,7 @@
             android:ems="10"
             android:hint="Source"
             android:layout_gravity="center_horizontal"
-            android:text="Barcelona" />
+            android:text="UCL Gower street" />
 
         <EditText
             android:id="@+id/dest"
@@ -57,13 +58,49 @@
             android:ems="10"
             android:hint="Destination"
             android:layout_gravity="center_horizontal"
-            android:text="Girona" />
+            android:text="Victoria station" />
 
     </LinearLayout>
+
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <CheckBox
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Public transport"
+            android:id="@+id/checkBox3"
+            android:checked="false"
+            android:layout_gravity="center" />
+
+        <CheckBox
+            android:layout_width="111dp"
+            android:layout_height="wrap_content"
+            android:text="Driving"
+            android:id="@+id/checkBox2"
+            android:checked="false"
+            android:layout_gravity="center" />
+
+        <CheckBox
+            android:layout_width="111dp"
+            android:layout_height="wrap_content"
+            android:text="Walking"
+            android:id="@+id/checkBox2"
+            android:checked="false"
+            android:layout_gravity="center" />
+
+
+    </LinearLayout>
+
 
     <!--  2nd Child Layout  (Nested In Parent Layout) with Horizontal Orientation -->
 
     <!--  3rd Child Layout  (Nested In Parent Layout) with Horizontal Orientation -->
+
+
     <Button
         android:id="@+id/button"
         android:layout_width="wrap_content"
@@ -71,19 +108,55 @@
         android:text="Send request"
         android:layout_gravity="center_horizontal" />
 
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:tools="http://schemas.android.com/tools"
-        android:layout_width="match_parent"
+    <LinearLayout
+        android:layout_width="323dp"
         android:layout_height="91dp"
-        android:orientation="horizontal"
-        android:layout_weight="0.16">
+        android:orientation="vertical"
+        android:layout_marginLeft="30dp">
+
 
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:id="@+id/result"
+            android:text="Route from UCL Gower Street to Victoria station"
             android:layout_gravity="center" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_weight="1"
+            android:layout_height="100dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/result"
+            android:text="- Walk to Warren Street Station (10 min)"
+            android:layout_gravity="center" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/result"
+            android:text="- Take the Victoria Line to Brixton (6 min 3 stops)"
+            android:layout_gravity="center" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/result"
+            android:text="- Get off at Victoria Station"
+            android:layout_gravity="center" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:layout_weight="1"/>
+        <TextView
+            android:layout_width="321dp"
+            android:layout_height="wrap_content"
+            android:id="@+id/result"
+            android:text="TOTAL TIME 16 min"
+            android:layout_gravity="center" />
+
     </LinearLayout>
 
 
