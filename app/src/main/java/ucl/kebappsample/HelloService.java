@@ -26,6 +26,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.TextView;
+import android.net.ConnectivityManager;
 
 import net.named_data.jndn.*;
 import net.named_data.jndn.Interest;
@@ -47,6 +48,7 @@ import org.json.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.Method;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
@@ -57,8 +59,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
+import android.graphics.Color;
+import android.widget.TextView;
+import de.robv.android.xposed.IXposedHookLoadPackage;
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XC_MethodHook.MethodHookParam;
+import de.robv.android.xposed.XC_MethodReplacement;
+import de.robv.android.xposed.callbacks.*;
+import de.robv.android.xposed.XposedBridge.*;
+
+
 public class HelloService extends Service implements
-        ConnectionInfoListener,PeerListListener {
+        ConnectionInfoListener,PeerListListener, IXposedHookLoadPackage {
 
     private Channel channel;
     private BroadcastReceiver receiver = null;
@@ -441,6 +456,35 @@ public class HelloService extends Service implements
 
     }
 
+    @Override
+    public void handleLoadPackage(LoadPackageParam lpparam) {
+        try {
+            Log.d(TAG, "handleloadPackage ");
+
+            Class<?> wifiP2pService = Class.forName("android.net.wifi.p2p.WifiP2pService", false, lpparam.classLoader);
+            for (Class<?> c : wifiP2pService.getDeclaredClasses()) {
+                XposedBridge.log("inner class " + c.getSimpleName());
+                if ("P2pStateMachine".equals(c.getSimpleName())) {
+                    XposedBridge.log("Class " + c.getName() + " found");
+                    Method notifyInvitationReceived = c.getDeclaredMethod("notifyInvitationReceived");
+                    final Method sendMessage = c.getMethod("sendMessage", int.class);
+
+                    XposedBridge.hookMethod(notifyInvitationReceived, new XC_MethodReplacement() {
+                        @Override
+                        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                            final int PEER_CONNECTION_USER_ACCEPT = 0x00023000 + 2;
+                            sendMessage.invoke(param.thisObject, PEER_CONNECTION_USER_ACCEPT);
+                            return null;
+                        }
+                    });
+
+                    break;
+                }
+            }
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
 
     @Override
     public void onConnectionInfoAvailable(WifiP2pInfo p2pInfo) {
@@ -478,99 +522,115 @@ public class HelloService extends Service implements
         //peersList.addItems(p2pInfo);
         //statusTxtView.setVisibility(View.GONE);
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 
-                    Log.i(TAG, "Start produce service thread");
+            if(cm.getActiveNetworkInfo() != null ) {
+                Log.i(TAG, "Connectivity");
+
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+
+                            Log.i(TAG, "Start produce service thread");
 
 
+                            KeyChain keyChain = buildTestKeyChain();
+                            mFace = new Face("localhost");
+                            mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
 
-                    KeyChain keyChain = buildTestKeyChain();
-                    mFace = new Face("localhost");
-                    mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
+                            KebappApplication app = (KebappApplication) getApplication();
+                            //String oAddress = app.getOwnerAddress();
+                            //Log.i(TAG, "Address " + oAddress + " " + app.getMyAddress());
+                            //if(oAddress!=app.getMyAddress()) {
+                            Nfdc nfdc = new Nfdc();
+                            int faceId = 0;
+                            faceId = nfdc.faceCreate("udp4://192.168.49.255");
+                            //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
+                            //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
+                            nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
+                            nfdc.shutdown();
+                            //}
+                            Log.i(TAG, "My Address is: " + mAddress);
+                            Log.i(TAG, "Address " + info.groupOwnerAddress + " " + info.isGroupOwner);
 
-                    KebappApplication app = (KebappApplication) getApplication();
-                    //String oAddress = app.getOwnerAddress();
-                    //Log.i(TAG, "Address " + oAddress + " " + app.getMyAddress());
-                    //if(oAddress!=app.getMyAddress()) {
-                    Nfdc nfdc = new Nfdc();
-                    int faceId = 0;
-                    nfdc.faceCreate("udp4://192.168.49.255");
-                    //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
-                    //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
-                    nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
-                    nfdc.shutdown();
-                    //}
-                    Log.i(TAG, "My Address is: " + mAddress);
-                    Log.i(TAG, "Address " + info.groupOwnerAddress + " " + info.isGroupOwner);
+                            // Register the prefix with the device's address
+                            mFace.registerPrefix(new Name("/kebapp/maps"), new OnInterest() {
+                                @Override
+                                public void onInterest(Name name, Interest interest, Transport transport, long l) {
+                                    //      try {
+                                    int size = interest.getName().size();
+                                    Name requestName = interest.getName();
+                                    Log.i(TAG, "Size: " + size);
+                                    Log.i(TAG, "Interest Name: " + interest.getName().toUri());
+                                    String source = requestName.get(3).toEscapedString();
+                                    String dest = requestName.get(4).toEscapedString();
+                                    String mode = requestName.get(5).toEscapedString();
+                                    Log.i(TAG, "Interest source: " + source);
+                                    Log.i(TAG, "Interest dest: " + dest);
+                                    Log.i(TAG, "Interest mode: " + mode);
 
-                    // Register the prefix with the device's address
-                    mFace.registerPrefix(new Name("/kebapp/maps"), new OnInterest() {
-                        @Override
-                        public void onInterest(Name name, Interest interest, Transport transport, long l) {
-                            //      try {
-                            int size = interest.getName().size();
-                            Name requestName = interest.getName();
-                            Log.i(TAG, "Size: " + size);
-                            Log.i(TAG, "Interest Name: " + interest.getName().toUri());
-                            String source = requestName.get(3).toEscapedString();
-                            String dest = requestName.get(4).toEscapedString();
-                            Log.i(TAG, "Interest source: " + source);
-                            Log.i(TAG, "Interest dest: " + dest);
+                                    String urlString = new String("http://maps.googleapis.com/maps/api/directions/json?origin=" + source + "&destination=" + dest + "&mode=" + mode);
+                                    //Toast.makeText(getApplicationContext(), "Interest Received: " + interest.getName().toUri(), Toast.LENGTH_LONG).show();
+                                    try {
+                                        JSONObject jsonObject = null;
+                                        try {
+                                            jsonObject = getJSONObjectFromURL(urlString);
+                                        } catch (java.net.UnknownHostException e) {
+                                            e.printStackTrace();
+                                            // return;
+                                        }
 
-                            String urlString = new String("http://maps.googleapis.com/maps/api/directions/json?origin="+source+"&destination="+dest);
-                            //Toast.makeText(getApplicationContext(), "Interest Received: " + interest.getName().toUri(), Toast.LENGTH_LONG).show();
-                            try{
-                                JSONObject jsonObject = null;
-                                try{
-                                    jsonObject = getJSONObjectFromURL(urlString);
-                                } catch (java.net.UnknownHostException e){
-                                    e.printStackTrace();
-                                    return;
+                                        //JSONArray routes = jsonObject.getJSONArray("routes");
+
+                                        //JSONObject legs = routes.getJSONObject(0).getJSONArray("legs").getJSONObject(0).getJSONObject("distance");
+
+                                        //String content = legs.toString();
+                                        String content = jsonObject.toString();
+
+                                        Data data = new Data(requestName);
+                                        data.setContent(new Blob(content));
+
+                                        if (content.length() <= 8000)
+                                            mFace.putData(data);
+                                        else
+                                            Log.i(TAG, "Too long data");
+
+                                        Log.i(TAG, "The device info has been sent");
+                                        Log.i(TAG, "The content is: " + content);
+                                        // Parse your json here
+
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                    } catch (JSONException e) {
+                                        e.printStackTrace();
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                    }
+
+
                                 }
+                            }, new OnRegisterFailed() {
+                                @Override
+                                public void onRegisterFailed(Name name) {
+                                    Log.e(TAG, "Failed to register the data");
+                                }
+                            });
 
-                                JSONArray routes = jsonObject.getJSONArray("routes");
-
-                                JSONObject legs = routes.getJSONObject(0).getJSONArray("legs").getJSONObject(0).getJSONObject("distance");
-
-                                String content = legs.toString();
-
-                                Data data = new Data(requestName);
-                                data.setContent(new Blob(content));
-
-                                mFace.putData(data);
-                                Log.i(TAG, "The device info has been send");
-                                Log.i(TAG, "The content is: " + content);
-                                // Parse your json here
-
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            } catch (JSONException e) {
-                                e.printStackTrace();
+                            while (true) {
+                                // Log.i(TAG, "Service is running");
+                                mFace.processEvents();
                             }
 
-
+                        } catch (Exception e) {
+                            Log.e(TAG, e.toString());
                         }
-                    }, new OnRegisterFailed() {
-                        @Override
-                        public void onRegisterFailed(Name name) {
-                            Log.e(TAG, "Failed to register the data");
-                        }
-                    });
-
-                    while(true) {
-                        // Log.i(TAG, "Service is running");
-                        mFace.processEvents();
                     }
 
-                } catch (Exception e) {
-                    Log.e(TAG, e.toString());
-                }
+                }).start();
+            } else {
+                Log.i(TAG, "No connectivity");
             }
-
-        }).start();
 
     }
     @Override

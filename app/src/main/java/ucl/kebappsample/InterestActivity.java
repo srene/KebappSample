@@ -15,6 +15,17 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.net.wifi.WifiManager;
 import android.net.DhcpInfo;
+import android.support.v4.app.FragmentActivity;
+import android.content.res.Configuration;
+import android.widget.Toast;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 
 import net.named_data.jndn.Data;
 import net.named_data.jndn.Face;
@@ -36,7 +47,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.net.*;
 
-public class InterestActivity extends Activity {
+public class InterestActivity extends FragmentActivity implements OnMapReadyCallback{
 
     public static final String TAG = "InterestActivity";
 
@@ -45,7 +56,10 @@ public class InterestActivity extends Activity {
     private Button button, button2;
     private EditText source, dest;
     private CheckBox enableCheck;
-
+    private CheckBox transit,driving,walking;
+    private String mode;
+    private GoogleMap map;
+    private SupportMapFragment fragment;
     /**
      * ATTENTION: This was auto-generated to implement the App Indexing API.
      * See https://g.co/AppIndexing/AndroidStudio for more information.
@@ -59,19 +73,72 @@ public class InterestActivity extends Activity {
         resultTxtView = (TextView) findViewById(R.id.result);
         source = (EditText) findViewById(R.id.source);
         dest = (EditText) findViewById(R.id.dest);
-
+        fragment = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map));
+        fragment.getMapAsync(this);
+        mode="transit";
         button = (Button) this.findViewById(R.id.button);
 
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                clearStatus();
+              //  clearStatus();
                 StartRequest();
             }
         });
 
 
         enableCheck = (CheckBox) this.findViewById(R.id.checkBox);
+        transit = (CheckBox) this.findViewById(R.id.transit);
+        driving = (CheckBox) this.findViewById(R.id.driving);
+        walking = (CheckBox) this.findViewById(R.id.walking);
+
+
+        transit.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+
+                if (((CheckBox) v).isChecked()) {
+                    mode="transit";
+                    if(driving.isChecked())driving.toggle();
+                    if(walking.isChecked())walking.toggle();
+
+                } else {
+                    transit.toggle();
+                }
+            }
+        });
+
+        driving.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+
+                if (((CheckBox) v).isChecked()) {
+                    mode="driving";
+                    if(transit.isChecked())transit.toggle();
+                    if(walking.isChecked())walking.toggle();
+                }else {
+                    driving.toggle();
+                }
+
+            }
+        });
+
+        walking.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+
+                if (((CheckBox) v).isChecked()) {
+                    mode="walking";
+                    if(transit.isChecked())transit.toggle();
+                    if(driving.isChecked())driving.toggle();
+                }else {
+                    walking.toggle();
+                }
+            }
+        });
 
         enableCheck.setOnClickListener(new View.OnClickListener() {
 
@@ -103,6 +170,37 @@ public class InterestActivity extends Activity {
         });
     }
 
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        map = googleMap;
+      /*  bNavigation.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                if (!isTravelingToParis)
+                {
+                    isTravelingToParis = true;
+                    findDirections( AMSTERDAM.latitude, AMSTERDAM.longitude,PARIS.latitude, PARIS.longitude, GMapV2Direction.MODE_DRIVING );
+                }
+                else
+                {
+                    isTravelingToParis = false;
+                    findDirections( AMSTERDAM.latitude, AMSTERDAM.longitude, FRANKFURT.latitude, FRANKFURT.longitude, GMapV2Direction.MODE_DRIVING );
+                }
+            }
+        });*/
+    }
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+
+        // Checks the orientation of the screen
+        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            Toast.makeText(this, "landscape", Toast.LENGTH_SHORT).show();
+        } else if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT){
+            Toast.makeText(this, "portrait", Toast.LENGTH_SHORT).show();
+        }
+    }
     @Override
     public void onResume() {
         super.onResume();
@@ -210,7 +308,8 @@ public class InterestActivity extends Activity {
                // nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 10, true, false);
                // nfdc.shutdown();
                 Log.i(RequestDeviceListTask.TAG, "Face created");
-                Interest interest = new Interest(new Name("/kebapp/maps/routefinder/"+source.getText().toString()+"/"+dest.getText().toString()));
+
+                Interest interest = new Interest(new Name("/kebapp/maps/routefinder/"+source.getText().toString()+"/"+dest.getText().toString()+"/"+mode));
                 interest.setInterestLifetimeMilliseconds(10000);
                 Log.i(RequestDeviceListTask.TAG, "Interest created "+ interest.getName().get(3).toEscapedString());
 
@@ -219,6 +318,7 @@ public class InterestActivity extends Activity {
                     public void onData(Interest interest, Data data) {
                         String content = data.getContent().toString();
                         try {
+                            Log.i(RequestDeviceListTask.TAG, "The content has been received ");
                             final JSONObject object = new JSONObject(content);
                             Log.i(RequestDeviceListTask.TAG, "The content has been received " + object.getString("text"));
 
@@ -267,7 +367,6 @@ public class InterestActivity extends Activity {
         }
 
     }
-
 
     public static KeyChain buildTestKeyChain() throws SecurityException {
         MemoryIdentityStorage identityStorage = new MemoryIdentityStorage();

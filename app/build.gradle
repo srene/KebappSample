@@ -27,4 +27,7 @@ dependencies {
     compile files('libs/jndn-management-0.10.1.jar')
     compile files('libs/jndn-utils-0.10.2.jar')
     compile 'net.named-data.jndn-xx:jndn-xx-util:0.0.1'
+    provided 'de.robv.android.xposed:api:82'
+    compile 'com.google.android.gms:play-services:9.6.1'
+
 }
