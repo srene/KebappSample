@@ -506,7 +506,7 @@ public class DiscoverActivity extends Activity implements
             if(deviceInfos != null) {
                 // PhotoSharingApplication application = (PhotoSharingApplication) getApplication();
                 for (DeviceInfo info : deviceInfos) {
-                    app.addDevice(info.ipAddress, info.deviceName);
+                   // app.addDevice(info.ipAddress, info.deviceName);
                 }
 
                // intent.putParcelableArrayListExtra("devices", deviceInfos);

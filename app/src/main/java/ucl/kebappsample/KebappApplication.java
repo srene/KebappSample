@@ -15,7 +15,7 @@ import java.util.ArrayList;
  */
 public class KebappApplication extends Application {
 
-    private ArrayList<DeviceInfo> deviceList;
+    private ArrayList<String> deviceList;
     private String myAddress, myDeviceName, ownerAddress, ownerName;
     private ArrayList<String> selectedPhotoPaths;
 
@@ -60,11 +60,14 @@ public class KebappApplication extends Application {
         return ownerName;
     }
 
-    public ArrayList<DeviceInfo> getDeviceList(){
+    public ArrayList<String> getDeviceList(){
         return deviceList;
     }
 
-    public void addDevice(String address, String name){
+    public void setDeviceList(ArrayList<String> deviceList) {
+        this.deviceList = deviceList;
+    }
+    /*public void addDevice(String address, String name){
         if (deviceList.isEmpty()){
             DeviceInfo d = new DeviceInfo(address, name);
             deviceList.add(d);
@@ -83,7 +86,7 @@ public class KebappApplication extends Application {
 
     public void addDevice(DeviceInfo info) {
         deviceList.add(info);
-    }
+    }*/
 
     public void clearSelectedPhotoPaths(){
         selectedPhotoPaths.clear();

@@ -17,8 +17,14 @@ package="ucl.kebappsample" >
     android:name="android.permission.WRITE_EXTERNAL_STORAGE"
     android:required="true"/>
 <uses-permission
-    android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
-
+    android:name="com.google.android.providers.gsf.permission.READ_GSERVICES"
+    android:required="true"/>
+<uses-permission
+    android:name="android.permission.ACCESS_COARSE_LOCATION"
+    android:required="true"/>
+<uses-permission
+    android:name="android.permission.ACCESS_FINE_LOCATION"
+    android:required="true"/>
 
     <!-- in order to access user's gallery -->
 <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -55,6 +61,12 @@ package="ucl.kebappsample" >
         >
     </activity>
     <activity
+        android:name=".DeviceListActivity"
+        android:label="DiscoverableDevices"
+        android:screenOrientation="portrait"
+        >
+    </activity>
+    <activity
         android:name=".SplashActivity"
         android:theme="@style/SplashTheme"
         android:screenOrientation="portrait"
@@ -69,7 +81,11 @@ package="ucl.kebappsample" >
         android:exported="false"/>
     <meta-data
         android:name="com.google.android.maps.v2.API_KEY"
-        android:value="AIzaSyBiVig1mU9LZwjDs4k18zmZNMcCobSFtrM" />
+        android:value="AIzaSyBiVig1mU9LZwjDs4k18zmZNMcCobSFtrM" /><!-- ATTENTION: This was auto-generated to add Google Play services to your project for
+     App Indexing.  See https://g.co/AppIndexing/AndroidStudio for more information. -->
+    <meta-data
+        android:name="com.google.android.gms.version"
+        android:value="@integer/google_play_services_version" />
 </application>
 
 </manifest>

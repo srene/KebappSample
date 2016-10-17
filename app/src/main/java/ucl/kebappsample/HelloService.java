@@ -24,9 +24,9 @@ import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Binder;
 import android.util.Log;
 import android.widget.TextView;
-import android.net.ConnectivityManager;
 
 import net.named_data.jndn.*;
 import net.named_data.jndn.Interest;
@@ -95,7 +95,7 @@ public class HelloService extends Service implements
 
     static final int SERVER_PORT = 4545;
     private WifiP2pDnsSdServiceRequest serviceRequest;
-
+    private WifiP2pInfo info;
     //public MyListFragment peersList;
 
     private final IntentFilter intentFilter = new IntentFilter();
@@ -109,7 +109,21 @@ public class HelloService extends Service implements
     private String mAddress = "";
     private KeyChain keyChain;
 
+    IBinder mBinder = new LocalBinder();
+
     private Handler mServiceBroadcastingHandler;
+
+    @Override
+    public IBinder onBind(Intent arg0) {
+        Log.i(TAG, "Service onBind");
+        return mBinder;
+    }
+    public class LocalBinder extends Binder {
+        public HelloService getServerInstance() {
+            return HelloService.this;
+        }
+    }
+
     @Override
     public void onCreate() {
         Log.i(TAG, "Service onCreate");
@@ -148,7 +162,7 @@ public class HelloService extends Service implements
                 Log.i(TAG, "Service onStartCommand thread");
 
 
-                startRegistrationAndDiscovery();
+               // startRegistrationAndDiscovery();
 
 
                 //Your logic that service will perform will be placed here
@@ -170,16 +184,123 @@ public class HelloService extends Service implements
         //}).start();
 
 
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+
+                    Log.i(TAG, "Start produce service thread");
+
+                    final ArrayList<String> prefixData = new ArrayList<>();
+
+                    KeyChain keyChain = buildTestKeyChain();
+                    mFace = new Face("localhost");
+                    mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
+
+                    KebappApplication app = (KebappApplication) getApplication();
+                    //String oAddress = app.getOwnerAddress();
+                    //Log.i(TAG, "Address " + oAddress + " " + app.getMyAddress());
+                    //if(oAddress!=app.getMyAddress()) {
+
+                    //}
+                    Log.i(TAG, "My Address is: " + mAddress);
+                  //  Log.i(TAG, "Address " + info.groupOwnerAddress + " " + info.isGroupOwner);
+
+                    // Register the prefix with the device's address
+                    mFace.registerPrefix(new Name("/kebapp/maps"), new OnInterest() {
+                        @Override
+                        public void onInterest(Name name, Interest interest, Transport transport, long l) {
+                            //      try {
+
+                            //Toast.makeText(getApplicationContext(), "Interest Received: " + interest.getName().toUri(), Toast.LENGTH_LONG).show();
+                            try {
+
+                                int size = interest.getName().size();
+                                Name requestName = interest.getName();
+                                Log.i(TAG, "Size: " + size);
+                                Log.i(TAG, "Interest Name: " + interest.getName().toUri());
+                                String source = requestName.get(3).toEscapedString();
+                                String dest = requestName.get(4).toEscapedString();
+                                String mode = requestName.get(5).toEscapedString();
+                                Log.i(TAG, "Interest source: " + source);
+                                Log.i(TAG, "Interest dest: " + dest);
+                                Log.i(TAG, "Interest mode: " + mode);
+                                int seqNo = (int)requestName.get(6).toSequenceNumber();
+
+                                String urlString = new String("http://maps.googleapis.com/maps/api/directions/json?origin=" + source + "&destination=" + dest + "&mode=" + mode);
+
+                                prefixData.clear();
+
+                                JSONObject jsonObject = null;
+                                try {
+                                    jsonObject = getJSONObjectFromURL(urlString);
+                                } catch (java.net.UnknownHostException e) {
+                                    e.printStackTrace();
+                                    // return;
+                                }
+
+                                String content = jsonObject.toString();
+
+                                Data data = new Data(requestName);
+
+                                // Split the data
+                                int fixLength = 8000;
+                                int cnt = (content.length() / fixLength) + 1;
+                                Log.d(TAG,"Content packets "+cnt);
+
+                                for(int i = 0; i < cnt; i++) {
+                                    Log.d(TAG,"Prefix "+1);
+                                    prefixData.add(content.substring(i*fixLength, Math.min((i+1)*fixLength, content.length())));
+                                }
+
+                                if(seqNo == 1) {
+                                    data.setContent(new Blob(""+prefixData.size()));
+                                }
+                                else {
+                                    data.setContent(new Blob(prefixData.get(seqNo - 2)));
+                                }
+
+
+                                mFace.putData(data);
+
+
+                                Log.i(TAG, "The device info has been sent");
+                                Log.i(TAG, "The content is: " + content);
+                                Log.i(TAG, "The content is: " + data.getContent().toString());
+                                // Parse your json here
+
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+
+
+                        }
+                    }, new OnRegisterFailed() {
+                        @Override
+                        public void onRegisterFailed(Name name) {
+                            Log.e(TAG, "Failed to register the data");
+                        }
+                    });
+
+                    while (true) {
+                        // Log.i(TAG, "Service is running");
+                        mFace.processEvents();
+                    }
+
+                } catch (Exception e) {
+                    Log.e(TAG, e.toString());
+                }
+            }
+
+        }).start();
 
         return Service.START_STICKY;
     }
 
-
-    @Override
-    public IBinder onBind(Intent arg0) {
-        Log.i(TAG, "Service onBind");
-        return null;
-    }
 
     @Override
     public void onDestroy() {
@@ -210,6 +331,7 @@ public class HelloService extends Service implements
                                 Log.d(TAG, "removeGroup onFailure -" + reason);
                             }
                         });
+
                     }
                 }
             });
@@ -248,7 +370,7 @@ public class HelloService extends Service implements
     };
 
 
-    private void startRegistrationAndDiscovery() {
+    public void startRegistrationAndDiscovery() {
         Map<String, String> record = new HashMap<String, String>();
        // record.put(TXTRECORD_PROP_AVAILABLE, "visible");
         record.put("listenport", String.valueOf(SERVER_PORT));
@@ -497,7 +619,7 @@ public class HelloService extends Service implements
         //MyListFragment fragment = (MyListFragment) getFragmentManager()
         //        .findFragmentByTag("services");
         Log.d(TAG, "Connected info "+ p2pInfo);
-        final WifiP2pInfo  info = p2pInfo;
+        info = p2pInfo;
         if (p2pInfo.isGroupOwner) {
             Log.d(TAG, "Connected as group owner "+ p2pInfo.groupOwnerAddress.getHostAddress());
           /*  try {
@@ -522,115 +644,23 @@ public class HelloService extends Service implements
         //peersList.addItems(p2pInfo);
         //statusTxtView.setVisibility(View.GONE);
 
-            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-
-            if(cm.getActiveNetworkInfo() != null ) {
-                Log.i(TAG, "Connectivity");
-
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-
-                            Log.i(TAG, "Start produce service thread");
-
-
-                            KeyChain keyChain = buildTestKeyChain();
-                            mFace = new Face("localhost");
-                            mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
-
-                            KebappApplication app = (KebappApplication) getApplication();
-                            //String oAddress = app.getOwnerAddress();
-                            //Log.i(TAG, "Address " + oAddress + " " + app.getMyAddress());
-                            //if(oAddress!=app.getMyAddress()) {
-                            Nfdc nfdc = new Nfdc();
-                            int faceId = 0;
-                            faceId = nfdc.faceCreate("udp4://192.168.49.255");
-                            //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
-                            //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
-                            nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
-                            nfdc.shutdown();
-                            //}
-                            Log.i(TAG, "My Address is: " + mAddress);
-                            Log.i(TAG, "Address " + info.groupOwnerAddress + " " + info.isGroupOwner);
-
-                            // Register the prefix with the device's address
-                            mFace.registerPrefix(new Name("/kebapp/maps"), new OnInterest() {
-                                @Override
-                                public void onInterest(Name name, Interest interest, Transport transport, long l) {
-                                    //      try {
-                                    int size = interest.getName().size();
-                                    Name requestName = interest.getName();
-                                    Log.i(TAG, "Size: " + size);
-                                    Log.i(TAG, "Interest Name: " + interest.getName().toUri());
-                                    String source = requestName.get(3).toEscapedString();
-                                    String dest = requestName.get(4).toEscapedString();
-                                    String mode = requestName.get(5).toEscapedString();
-                                    Log.i(TAG, "Interest source: " + source);
-                                    Log.i(TAG, "Interest dest: " + dest);
-                                    Log.i(TAG, "Interest mode: " + mode);
-
-                                    String urlString = new String("http://maps.googleapis.com/maps/api/directions/json?origin=" + source + "&destination=" + dest + "&mode=" + mode);
-                                    //Toast.makeText(getApplicationContext(), "Interest Received: " + interest.getName().toUri(), Toast.LENGTH_LONG).show();
-                                    try {
-                                        JSONObject jsonObject = null;
-                                        try {
-                                            jsonObject = getJSONObjectFromURL(urlString);
-                                        } catch (java.net.UnknownHostException e) {
-                                            e.printStackTrace();
-                                            // return;
-                                        }
-
-                                        //JSONArray routes = jsonObject.getJSONArray("routes");
-
-                                        //JSONObject legs = routes.getJSONObject(0).getJSONArray("legs").getJSONObject(0).getJSONObject("distance");
-
-                                        //String content = legs.toString();
-                                        String content = jsonObject.toString();
-
-                                        Data data = new Data(requestName);
-                                        data.setContent(new Blob(content));
-
-                                        if (content.length() <= 8000)
-                                            mFace.putData(data);
-                                        else
-                                            Log.i(TAG, "Too long data");
-
-                                        Log.i(TAG, "The device info has been sent");
-                                        Log.i(TAG, "The content is: " + content);
-                                        // Parse your json here
-
-                                    } catch (IOException e) {
-                                        e.printStackTrace();
-                                    } catch (JSONException e) {
-                                        e.printStackTrace();
-                                    } catch (Exception e) {
-                                        e.printStackTrace();
-                                    }
-
-
-                                }
-                            }, new OnRegisterFailed() {
-                                @Override
-                                public void onRegisterFailed(Name name) {
-                                    Log.e(TAG, "Failed to register the data");
-                                }
-                            });
-
-                            while (true) {
-                                // Log.i(TAG, "Service is running");
-                                mFace.processEvents();
-                            }
-
-                        } catch (Exception e) {
-                            Log.e(TAG, e.toString());
-                        }
-                    }
-
-                }).start();
-            } else {
-                Log.i(TAG, "No connectivity");
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Nfdc nfdc = new Nfdc();
+                    int faceId = 0;
+                    faceId = nfdc.faceCreate("udp4://192.168.49.255");
+                    //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
+                    //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
+                    nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
+                    nfdc.shutdown();
+                } catch (Exception e) {
+                    Log.d(TAG, "Error " + e);
+                }
             }
+        }).start();
+
 
     }
     @Override
@@ -646,16 +676,21 @@ public class HelloService extends Service implements
         // ((WiFiPeerListAdapter) getListAdapter()).notifyDataSetChanged();
 
       //  peersList.clearItems();
+        ArrayList<String> list = new ArrayList<String>();
         for(int i= 0;i<peers.size();i++)
         {
-            WifiP2pDevice dev = (WifiP2pDevice)peers.get(0);
+            WifiP2pDevice dev = (WifiP2pDevice)peers.get(i);
             Log.d(TAG, "Device "+dev);
-            if(dev.status==0)
-                Log.d(TAG, "Peers "+peerList.getDeviceList().size());
+            if(dev.status==0) {
+                Log.d(TAG, "Peers " + peerList.getDeviceList().size());
 
-            //        peersList.addItems(dev.deviceName+" "+ service.instanceName);
+                list.add("Device: " + dev.deviceName);
+            }
 
         }
+        KebappApplication app = (KebappApplication) getApplication();
+        app.setDeviceList(list);
+
         Log.d(TAG, "Peers "+peers.size());
         if (peers.size() == 0) {
             Log.d(TAG, "No devices found");
@@ -726,6 +761,21 @@ public class HelloService extends Service implements
         BufferedReader br=new BufferedReader(new InputStreamReader(url.openStream()));
 
         //char[] buffer = new char[1024];
+
+        /*
+                                     JSONArray routes = jsonObject.getJSONArray("routes");
+
+                                //JSONObject legs = routes.getJSONObject(0).getJSONArray("legs").getJSONObject(0).getJSONObject("distance");
+                                JSONArray legs = routes.getJSONObject(0).getJSONArray("legs");
+                                JSONArray steps = legs.getJSONObject(0).getJSONArray("steps");
+
+                                String content = steps.toString();
+
+                                //JSONObject obj = new JSONObject();
+                                //obj.put("id", "JSON Object test");
+                                //String content = obj.toString();
+
+         */
 
         String jsonString;
 

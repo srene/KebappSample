@@ -1,31 +1,56 @@
 package ucl.kebappsample;
 
+import android.*;
+import android.Manifest;
+import android.app.ActionBar;
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.os.AsyncTaskCompat;
+import android.text.Html;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.net.wifi.WifiManager;
 import android.net.DhcpInfo;
 import android.support.v4.app.FragmentActivity;
 import android.content.res.Configuration;
+import android.content.ServiceConnection;
 import android.widget.Toast;
+import android.graphics.Color;
+
+import com.google.android.gms.appindexing.Action;
+import com.google.android.gms.appindexing.AppIndex;
+import com.google.android.gms.appindexing.Thing;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.common.api.GoogleApiClient.*;
+import com.google.android.gms.maps.model.Circle;
+import com.google.android.gms.maps.model.CircleOptions;
 
 import net.named_data.jndn.Data;
 import net.named_data.jndn.Face;
@@ -40,14 +65,23 @@ import net.named_data.jndn.security.identity.IdentityManager;
 import net.named_data.jndn.security.identity.MemoryIdentityStorage;
 import net.named_data.jndn.security.identity.MemoryPrivateKeyStorage;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.net.*;
+import java.util.HashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.RunnableFuture;
 
-public class InterestActivity extends FragmentActivity implements OnMapReadyCallback{
+import ucl.kebappsample.HelloService.LocalBinder;
+
+public class InterestActivity extends FragmentActivity implements OnMapReadyCallback,ConnectionCallbacks {
 
     public static final String TAG = "InterestActivity";
 
@@ -60,6 +94,9 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
     private String mode;
     private GoogleMap map;
     private SupportMapFragment fragment;
+    private GoogleApiClient mGoogleApiClient;
+    private static final int MY_PERMISSION_ACCESS_COARSE_LOCATION = 11;
+    private HelloService mServer;
     /**
      * ATTENTION: This was auto-generated to implement the App Indexing API.
      * See https://g.co/AppIndexing/AndroidStudio for more information.
@@ -68,20 +105,28 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.dssa);
+        setContentView(R.layout.kebapp);
         statusTxtView = (TextView) findViewById(R.id.status_text);
         resultTxtView = (TextView) findViewById(R.id.result);
         source = (EditText) findViewById(R.id.source);
         dest = (EditText) findViewById(R.id.dest);
         fragment = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map));
         fragment.getMapAsync(this);
-        mode="transit";
+        mode = "transit";
         button = (Button) this.findViewById(R.id.button);
 
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-              //  clearStatus();
+                clearStatus();
+
+              /*  LinearLayout myRoot = (LinearLayout) findViewById(R.id.my_root);
+                LinearLayout a = new LinearLayout(this);
+                a.setOrientation(LinearLayout.HORIZONTAL);
+                a.addView(view1);
+                a.addView(view2);
+                a.addView(view3);
+                myRoot.addView(a);*/
                 StartRequest();
             }
         });
@@ -99,9 +144,9 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
             public void onClick(View v) {
 
                 if (((CheckBox) v).isChecked()) {
-                    mode="transit";
-                    if(driving.isChecked())driving.toggle();
-                    if(walking.isChecked())walking.toggle();
+                    mode = "transit";
+                    if (driving.isChecked()) driving.toggle();
+                    if (walking.isChecked()) walking.toggle();
 
                 } else {
                     transit.toggle();
@@ -115,10 +160,10 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
             public void onClick(View v) {
 
                 if (((CheckBox) v).isChecked()) {
-                    mode="driving";
-                    if(transit.isChecked())transit.toggle();
-                    if(walking.isChecked())walking.toggle();
-                }else {
+                    mode = "driving";
+                    if (transit.isChecked()) transit.toggle();
+                    if (walking.isChecked()) walking.toggle();
+                } else {
                     driving.toggle();
                 }
 
@@ -131,10 +176,10 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
             public void onClick(View v) {
 
                 if (((CheckBox) v).isChecked()) {
-                    mode="walking";
-                    if(transit.isChecked())transit.toggle();
-                    if(driving.isChecked())driving.toggle();
-                }else {
+                    mode = "walking";
+                    if (transit.isChecked()) transit.toggle();
+                    if (driving.isChecked()) driving.toggle();
+                } else {
                     walking.toggle();
                 }
             }
@@ -144,16 +189,18 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
 
             @Override
             public void onClick(View v) {
-                Log.d(TAG,"Checkbox listen");
+                Log.d(TAG, "Checkbox listen");
 
                 if (((CheckBox) v).isChecked()) {
-                    Log.d(TAG,"Checkbox is checked");
-                    Intent intent = new Intent(InterestActivity.this, HelloService.class);
-                    startService(intent);
+                    Log.d(TAG, "Checkbox is checked");
+                    mServer.startRegistrationAndDiscovery();
+                    // Intent intent = new Intent(InterestActivity.this, HelloService.class);
+                    // startService(intent);
                 } else {
-                    Log.d(TAG,"Checkbox is not checked");
-                    Intent intent = new Intent(InterestActivity.this, HelloService.class);
-                    stopService(intent);
+                    mServer.disconnect();
+                    Log.d(TAG, "Checkbox is not checked");
+                    // Intent intent = new Intent(InterestActivity.this, HelloService.class);
+                    //  stopService(intent);
                 }
 
             }
@@ -164,31 +211,49 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
         button2.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(InterestActivity.this, DiscoverActivity.class);
+                Intent intent = new Intent(InterestActivity.this, DeviceListActivity.class);
                 startActivity(intent);
             }
         });
+
+        // Create an instance of GoogleAPIClient.
+        if (mGoogleApiClient == null) {
+            // ATTENTION: This "addApi(AppIndex.API)"was auto-generated to implement the App Indexing API.
+            // See https://g.co/AppIndexing/AndroidStudio for more information.
+            mGoogleApiClient = new Builder(this)
+                    .addConnectionCallbacks(this)
+                    //.addOnConnectionFailedListener(this)
+                    .addApi(LocationServices.API)
+                    .addApi(AppIndex.API).build();
+        }
+        mGoogleApiClient.connect();
+
+        Intent intent = new Intent(InterestActivity.this, HelloService.class);
+        bindService(intent, mConnection, BIND_AUTO_CREATE);
+        startService(intent);
+
+
     }
+
+    ServiceConnection mConnection = new ServiceConnection() {
+
+        public void onServiceDisconnected(ComponentName name) {
+           // Toast.makeText(Client.this, "Service is disconnected", 1000).show();
+            mServer = null;
+        }
+
+        public void onServiceConnected(ComponentName name, IBinder service) {
+           // Toast.makeText(Client.this, "Service is connected", 1000).show();
+            LocalBinder mLocalBinder = (LocalBinder)service;
+            mServer = mLocalBinder.getServerInstance();
+        }
+    };
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
+        Log.d(TAG,"On map ready");
         map = googleMap;
-      /*  bNavigation.setOnClickListener(new View.OnClickListener() {
 
-            @Override
-            public void onClick(View v) {
-                if (!isTravelingToParis)
-                {
-                    isTravelingToParis = true;
-                    findDirections( AMSTERDAM.latitude, AMSTERDAM.longitude,PARIS.latitude, PARIS.longitude, GMapV2Direction.MODE_DRIVING );
-                }
-                else
-                {
-                    isTravelingToParis = false;
-                    findDirections( AMSTERDAM.latitude, AMSTERDAM.longitude, FRANKFURT.latitude, FRANKFURT.longitude, GMapV2Direction.MODE_DRIVING );
-                }
-            }
-        });*/
     }
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
@@ -218,7 +283,7 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
 
     public void clearStatus() {
         statusTxtView.setText("");
-        resultTxtView.setText("");
+        //resultTxtView.setText("");
     }
 
     private InetAddress getBroadcastAddress() throws IOException {
@@ -236,17 +301,56 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
 
     @Override
     public void onStop() {
-        super.onStop();
-        Intent intent = new Intent(InterestActivity.this, KebappService.class);
+        super.onStop();// ATTENTION: This was auto-generated to implement the App Indexing API.
+// See https://g.co/AppIndexing/AndroidStudio for more information.
+        AppIndex.AppIndexApi.end(mGoogleApiClient, getIndexApiAction());
+        Intent intent = new Intent(InterestActivity.this, HelloService.class);
         stopService(intent);
+        mGoogleApiClient.disconnect();
     }
     @Override
     public void onDestroy() {
         super.onDestroy();
-        Intent intent = new Intent(InterestActivity.this, KebappService.class);
+        Intent intent = new Intent(InterestActivity.this, HelloService.class);
         stopService(intent);
         System.exit(0);
     }
+
+    @Override
+    public void onConnected(Bundle connectionHint) {
+        Log.d(TAG, "On connected");
+        Location mLastLocation;
+        if ( ContextCompat.checkSelfPermission( this, Manifest.permission.ACCESS_COARSE_LOCATION ) != PackageManager.PERMISSION_GRANTED ) {
+
+            ActivityCompat.requestPermissions( this, new String[] {  Manifest.permission.ACCESS_COARSE_LOCATION  },
+                    MY_PERMISSION_ACCESS_COARSE_LOCATION );
+        }
+        Log.d(TAG,"Set location");
+
+        mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        Log.d(TAG,"Set location");
+
+        if (mLastLocation != null) {
+            Log.d(TAG,"Set location " + mLastLocation.getLatitude() + " " + mLastLocation.getLongitude());
+
+            LatLng coordinate = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
+            CameraUpdate yourLocation = CameraUpdateFactory.newLatLngZoom(coordinate, 15);
+            map.animateCamera(yourLocation);
+            Circle circle = map.addCircle(new CircleOptions()
+                    .center(coordinate)
+                    .radius(1)
+                    .strokeColor(Color.BLUE)
+                    .fillColor(Color.BLUE));
+
+        }
+    }
+
+    @Override
+    public void onConnectionSuspended(int cause) {
+
+    }
+
+
 
     private void StartRequest() {
         Log.d(TAG,"Start request");
@@ -262,9 +366,41 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
         //AsyncTaskCompat.executeParallel( task,null);
 
         //task.execute();
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.FILL_PARENT);
+        lp.weight = 0;
+        fragment.getView().setLayoutParams(lp);
+
         RequestDeviceListTask task = new RequestDeviceListTask((KebappApplication) getApplication(), getApplicationContext());
         task.execute();
     }
+
+    /**
+     * ATTENTION: This was auto-generated to implement the App Indexing API.
+     * See https://g.co/AppIndexing/AndroidStudio for more information.
+     */
+    public Action getIndexApiAction() {
+        Thing object = new Thing.Builder()
+                .setName("Interest Page") // TODO: Define a title for the content shown.
+                // TODO: Make sure this auto-generated URL is correct.
+                .setUrl(Uri.parse("http://[ENTER-YOUR-URL-HERE]"))
+                .build();
+        return new Action.Builder(Action.TYPE_VIEW)
+                .setObject(object)
+                .setActionStatus(Action.STATUS_TYPE_COMPLETED)
+                .build();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        mGoogleApiClient.connect();
+        AppIndex.AppIndexApi.start(mGoogleApiClient, getIndexApiAction());
+    }
+
 
     // AsyncTask for requesting device list, input is the owner's address
     // /oAddress/deviceList
@@ -276,6 +412,9 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
         private boolean shouldStop = false;
         private KebappApplication app;
         private Context context;
+        private int seqNumber = Integer.MAX_VALUE;
+        private HashMap<Integer, String> results = new HashMap<Integer, String>();
+
         public RequestDeviceListTask(KebappApplication application, Context context) {
             this.app = application;
             this.context = context;
@@ -288,7 +427,7 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
 
             try {
                 // KeyChain keyChain = buildTestKeyChain();
-                KeyChain keyChain = app.keyChain;
+                final KeyChain keyChain = app.keyChain;
                 mFace = new Face("localhost");
                 mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
                 Log.d(TAG,"Background request");
@@ -309,14 +448,17 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                // nfdc.shutdown();
                 Log.i(RequestDeviceListTask.TAG, "Face created");
 
-                Interest interest = new Interest(new Name("/kebapp/maps/routefinder/"+source.getText().toString()+"/"+dest.getText().toString()+"/"+mode));
+                final Name requestName = new Name("/kebapp/maps/routefinder/"+source.getText().toString()+"/"+dest.getText().toString()+"/"+mode);
+                requestName.appendSequenceNumber(1);
+                Interest interest = new Interest(requestName);
                 interest.setInterestLifetimeMilliseconds(10000);
                 Log.i(RequestDeviceListTask.TAG, "Interest created "+ interest.getName().get(3).toEscapedString());
-
+                results.clear();
                 mFace.expressInterest(interest, new OnData() {
                     @Override
                     public void onData(Interest interest, Data data) {
-                        String content = data.getContent().toString();
+
+                        /*String content = data.getContent().toString();
                         try {
                             Log.i(RequestDeviceListTask.TAG, "The content has been received ");
                             final JSONObject object = new JSONObject(content);
@@ -340,12 +482,127 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                         } catch (JSONException e) {
                             Log.e(RequestDeviceListTask.TAG, "Failed to construct the JSON");
                             shouldStop = true;
+                        }*/
+                        try{
+
+                            Log.i(RequestDeviceListTask.TAG, data.getName().toUri());
+                            seqNumber = Integer.parseInt(data.getContent().toString());
+                            Log.i(RequestDeviceListTask.TAG, "" + seqNumber);
+                            Face contentFace = new Face("localhost");
+                            for (int i = 2; i < 2 + seqNumber; i++) {
+                                shouldStop = false;
+                                Log.i(RequestDeviceListTask.TAG, "Request for data sequence " + i);
+                                // Face contentFace = new Face("localhost");
+                                contentFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
+
+                                Name contentName = new Name("/kebapp/maps/routefinder/"+source.getText().toString()+"/"+dest.getText().toString()+"/"+mode);
+                                contentName.appendSequenceNumber(i);
+                                Interest cInterest = new Interest(contentName);
+                                cInterest.setInterestLifetimeMilliseconds(10000);
+                                contentFace.expressInterest(cInterest, new OnData() {
+                                    @Override
+                                    public void onData(Interest interest, Data data) {
+                                        try {
+                                            Log.i(RequestDeviceListTask.TAG,"Send second interest");
+                                            Name dName = data.getName();
+                                            int size = dName.size();
+                                            int seqNo = (int) dName.get(size - 1).toSequenceNumber();
+                                            String content = data.getContent().toString();
+                                            results.put(seqNo, content);
+                                            Log.i(RequestDeviceListTask.TAG,"Received "+content.toString());
+                                            Log.i(RequestDeviceListTask.TAG, "" + results.keySet().size());
+                                            // Log.i(RequestTask.TAG, "" + content);
+                                            shouldStop = true;
+                                        } catch (EncodingException e) {
+                                            Log.i(RequestDeviceListTask.TAG, data.getName().toUri());
+                                            Log.e(RequestDeviceListTask.TAG, "Encoding Failed " + seqNumber);
+                                        }
+                                    }
+                                }, new OnTimeout() {
+                                    @Override
+                                    public void onTimeout(Interest interest) {
+                                        Log.e(RequestDeviceListTask.TAG, "Time Out During Retriving Data");
+                                        shouldStop = true;
+                                    }
+                                });
+
+                                while (!shouldStop) {
+                                    contentFace.processEvents();
+                                }
+                            }
+                        }catch (SecurityException e) {
+                            Log.e(RequestDeviceListTask.TAG, "Security Failed " + seqNumber);
+                        } catch (IOException e) {
+                            Log.e(RequestDeviceListTask.TAG, "IO Exception");
+                        } catch (EncodingException e) {
+                            Log.e(RequestDeviceListTask.TAG, "Encoding Failed");
+                        }
+
+                        StringBuffer sb = new StringBuffer();
+                        for(int i = 2; i < 2 + seqNumber; i++) {
+                            sb.append(results.get(i));
+                        }
+                        // receiveVal = sb.toString();
+                        String content = sb.toString();
+                        try {
+                            Log.i(RequestDeviceListTask.TAG, "The content has been received " + content);
+                            final JSONObject object = new JSONObject(content);
+                            Log.i(RequestDeviceListTask.TAG, "The content has been received " + object.toString());
+
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        //appendStatus("Result received");
+                                        //resultTxtView.setText("The distance is " + object.getString("text"));
+                                        //  Toast.makeText(getApplicationContext(), "The distance is " +  object.getString("text"), Toast.LENGTH_LONG).show();
+                                        appendStatus("Result received");
+                                        JSONArray routes = object.getJSONArray("routes");
+                                        //JSONObject legs = routes.getJSONObject(0).getJSONArray("legs").getJSONObject(0).getJSONObject("distance");
+                                        JSONArray legs = routes.getJSONObject(0).getJSONArray("legs");
+                                        JSONArray steps = legs.getJSONObject(0).getJSONArray("steps");
+
+                                        StringBuffer html = new StringBuffer();
+                                        for(int i = 0; i < steps.length(); i++)
+                                        {
+                                            html.append(steps.getJSONObject(i).getString("html_instructions"));
+                                            html.append("\n");
+                                        }
+                                        String content = html.toString();
+
+                                        //JSONObject obj = new JSONObject();
+                                        //obj.put("id", "JSON Object test");
+                                        //String content = obj.toString();
+                                        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.FILL_PARENT);
+                                        lp.weight = 1;
+                                        fragment.getView().setLayoutParams(lp);
+                                        resultTxtView.setText(Html.fromHtml(content));
+                                    } catch (Exception e) {
+                                        Log.e(RequestDeviceListTask.TAG, "Failed to construct the JSON");
+
+                                    }
+                                }
+                            });
+                            shouldStop = true;
+                        } catch (JSONException e) {
+                            Log.e(RequestDeviceListTask.TAG, "Failed to construct the JSON");
+                            shouldStop = true;
                         }
                     }
                 }, new OnTimeout() {
                     @Override
                     public void onTimeout(Interest interest) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.FILL_PARENT);
+                                lp.weight = 0;
+                                fragment.getView().setLayoutParams(lp);
+                            }
+
+                        });
                         Log.e(RequestDeviceListTask.TAG, "Time Out!");
+                        appendStatus("Time Out!");
                         shouldStop = true;
                     }
                 });
@@ -354,7 +611,7 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                     mFace.processEvents();
                 }
 
-            } catch (net.named_data.jndn.security.SecurityException e) {
+            } catch (SecurityException e) {
                 Log.e(RequestDeviceListTask.TAG, "Secrity Failed");
             } catch (IOException e) {
                 Log.e(RequestDeviceListTask.TAG, "IO Failed");
