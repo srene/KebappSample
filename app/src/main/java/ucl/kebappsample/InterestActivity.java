@@ -372,7 +372,9 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
         fragment.getView().setLayoutParams(lp);
 
         RequestDeviceListTask task = new RequestDeviceListTask((KebappApplication) getApplication(), getApplicationContext());
-        task.execute();
+        //task.cancel(true);
+       // task.execute();
+        task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     /**
@@ -448,11 +450,11 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                // nfdc.shutdown();
                 Log.i(RequestDeviceListTask.TAG, "Face created");
 
-                final Name requestName = new Name("/kebapp/maps/routefinder/"+source.getText().toString()+"/"+dest.getText().toString()+"/"+mode);
+                final Name requestName = new Name("/kebapp/maps/route/finder/"+source.getText().toString()+"/"+dest.getText().toString()+"/"+mode);
                 requestName.appendSequenceNumber(1);
                 Interest interest = new Interest(requestName);
-                interest.setInterestLifetimeMilliseconds(10000);
-                Log.i(RequestDeviceListTask.TAG, "Interest created "+ interest.getName().get(3).toEscapedString());
+                interest.setInterestLifetimeMilliseconds(5000);
+                Log.i(RequestDeviceListTask.TAG, "Interest created "+ interest.getName().get(4).toEscapedString());
                 results.clear();
                 mFace.expressInterest(interest, new OnData() {
                     @Override
@@ -495,10 +497,10 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                                 // Face contentFace = new Face("localhost");
                                 contentFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
 
-                                Name contentName = new Name("/kebapp/maps/routefinder/"+source.getText().toString()+"/"+dest.getText().toString()+"/"+mode);
+                                Name contentName = new Name("/kebapp/maps/route/finder/"+source.getText().toString()+"/"+dest.getText().toString()+"/"+mode);
                                 contentName.appendSequenceNumber(i);
                                 Interest cInterest = new Interest(contentName);
-                                cInterest.setInterestLifetimeMilliseconds(10000);
+                                cInterest.setInterestLifetimeMilliseconds(5000);
                                 contentFace.expressInterest(cInterest, new OnData() {
                                     @Override
                                     public void onData(Interest interest, Data data) {
@@ -526,7 +528,7 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                                     }
                                 });
 
-                                while (!shouldStop) {
+                                while (!shouldStop&&!isCancelled()) {
                                     contentFace.processEvents();
                                 }
                             }
@@ -559,17 +561,36 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                                         appendStatus("Result received");
                                         JSONArray routes = object.getJSONArray("routes");
                                         //JSONObject legs = routes.getJSONObject(0).getJSONArray("legs").getJSONObject(0).getJSONObject("distance");
+                                        Log.i(RequestDeviceListTask.TAG, "latlng ");
                                         JSONArray legs = routes.getJSONObject(0).getJSONArray("legs");
+
+                                        Log.i(RequestDeviceListTask.TAG, "latlng 3 ");
+
+                                        Log.i(RequestDeviceListTask.TAG, "latlng 2");
+
+
                                         JSONArray steps = legs.getJSONObject(0).getJSONArray("steps");
 
                                         StringBuffer html = new StringBuffer();
+                                        JSONObject latlng = new JSONObject();
                                         for(int i = 0; i < steps.length(); i++)
                                         {
+                                            Log.d(TAG,"step :"+steps.getJSONObject(i).getString("html_instructions"));
                                             html.append(steps.getJSONObject(i).getString("html_instructions"));
-                                            html.append("\n");
+                                            html.append("<br>");
+                                            Log.d(TAG,"step :"+html.toString());
+                                            latlng = steps.getJSONObject(i).getJSONObject("end_location");
+
                                         }
                                         String content = html.toString();
-
+                                        LatLng coordinate = new LatLng(Double.parseDouble(latlng.getString("lat")), Double.parseDouble(latlng.getString("lng")));
+                                        CameraUpdate yourLocation = CameraUpdateFactory.newLatLngZoom(coordinate, 15);
+                                        map.animateCamera(yourLocation);
+                                        Circle circle = map.addCircle(new CircleOptions()
+                                                .center(coordinate)
+                                                .radius(1)
+                                                .strokeColor(Color.BLUE)
+                                                .fillColor(Color.BLUE));
                                         //JSONObject obj = new JSONObject();
                                         //obj.put("id", "JSON Object test");
                                         //String content = obj.toString();
@@ -579,6 +600,14 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                                         resultTxtView.setText(Html.fromHtml(content));
                                     } catch (Exception e) {
                                         Log.e(RequestDeviceListTask.TAG, "Failed to construct the JSON");
+                                        runOnUiThread(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                appendStatus("We got no valid results from GMaps");
+
+                                            }
+
+                                        });
 
                                     }
                                 }
@@ -586,6 +615,13 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                             shouldStop = true;
                         } catch (JSONException e) {
                             Log.e(RequestDeviceListTask.TAG, "Failed to construct the JSON");
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    appendStatus("We got no valid results from GMaps");
+                                }
+
+                            });
                             shouldStop = true;
                         }
                     }

@@ -205,9 +205,8 @@ public class HelloService extends Service implements
                     //}
                     Log.i(TAG, "My Address is: " + mAddress);
                   //  Log.i(TAG, "Address " + info.groupOwnerAddress + " " + info.isGroupOwner);
-
                     // Register the prefix with the device's address
-                    mFace.registerPrefix(new Name("/kebapp/maps"), new OnInterest() {
+                    mFace.registerPrefix(new Name("/kebapp/maps/route/"), new OnInterest() {
                         @Override
                         public void onInterest(Name name, Interest interest, Transport transport, long l) {
                             //      try {
@@ -219,13 +218,13 @@ public class HelloService extends Service implements
                                 Name requestName = interest.getName();
                                 Log.i(TAG, "Size: " + size);
                                 Log.i(TAG, "Interest Name: " + interest.getName().toUri());
-                                String source = requestName.get(3).toEscapedString();
-                                String dest = requestName.get(4).toEscapedString();
-                                String mode = requestName.get(5).toEscapedString();
+                                String source = requestName.get(4).toEscapedString();
+                                String dest = requestName.get(5).toEscapedString();
+                                String mode = requestName.get(6).toEscapedString();
                                 Log.i(TAG, "Interest source: " + source);
                                 Log.i(TAG, "Interest dest: " + dest);
                                 Log.i(TAG, "Interest mode: " + mode);
-                                int seqNo = (int)requestName.get(6).toSequenceNumber();
+                                int seqNo = (int)requestName.get(7).toSequenceNumber();
 
                                 String urlString = new String("http://maps.googleapis.com/maps/api/directions/json?origin=" + source + "&destination=" + dest + "&mode=" + mode);
 
@@ -236,7 +235,7 @@ public class HelloService extends Service implements
                                     jsonObject = getJSONObjectFromURL(urlString);
                                 } catch (java.net.UnknownHostException e) {
                                     e.printStackTrace();
-                                    // return;
+                                    return;
                                 }
 
                                 String content = jsonObject.toString();
@@ -521,7 +520,7 @@ public class HelloService extends Service implements
         WifiP2pConfig config = new WifiP2pConfig();
         config.deviceAddress = service.device.deviceAddress;
         config.wps.setup = WpsInfo.PBC;
-        //config.groupOwnerIntent = 15; // I want this device to become the owner
+        config.groupOwnerIntent = 15; // I want this device to become the owner
        /* if (serviceRequest != null)
             manager.removeServiceRequest(channel, serviceRequest,
                     new ActionListener() {
@@ -653,7 +652,7 @@ public class HelloService extends Service implements
                     faceId = nfdc.faceCreate("udp4://192.168.49.255");
                     //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
                     //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
-                    nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
+                    nfdc.ribRegisterPrefix(new Name("/kebapp/maps/route/finder/"), faceId, 0, true, false);
                     nfdc.shutdown();
                 } catch (Exception e) {
                     Log.d(TAG, "Error " + e);
