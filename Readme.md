@@ -9,5 +9,5 @@ Before this application can be used, the NFD-Android (Networking Forwarding Daem
 installed and running on the phone.
 
 Instructions on compiling and installing NFD-Android can be found at:
-[NFD-Android](https://github.com/named-data/NFD-android).
+[NFD-Android](https://github.com/srene/KEBAPP).
 
