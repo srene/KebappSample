@@ -30,7 +30,6 @@ import android.net.wifi.p2p.WifiP2pManager.PeerListListener;
 import android.os.AsyncTask;
 import android.util.Log;
 
-import net.named_data.jndn.Face;
 import net.named_data.jndn.security.KeyChain;
 
 import java.net.Inet4Address;
@@ -83,9 +82,9 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
-        Log.d(HelloService.TAG, action);
+        Log.d(KebappService.TAG, action);
         if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
-            Log.d(HelloService.TAG, "WIFI_P2P_CONNECTION_CHANGED_ACTION received");
+            Log.d(KebappService.TAG, "WIFI_P2P_CONNECTION_CHANGED_ACTION received");
             if (manager == null) {
                 return;
             }
@@ -96,7 +95,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
                 // we are connected with the other device, request connection
                 // info to find group owner IP
-                Log.d(HelloService.TAG,
+                Log.d(KebappService.TAG,
                         "Connected to p2p network. Requesting network details");
                 manager.requestConnectionInfo(channel, (WifiP2pManager.ConnectionInfoListener) service);
                 RequestOwner task = new RequestOwner();
@@ -108,18 +107,14 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 // It's a disconnect
             }
         } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
-            Log.d(HelloService.TAG, "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION received");
+            Log.d(KebappService.TAG, "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION received");
 
             WifiP2pDevice device = (WifiP2pDevice) intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
 
-            //MyListFragment fragment = (MyListFragment) MainActivity.getFragmentManager()
-            //        .findFragmentByTag("services");
-            //   MainActivity.peersList;
-
-            Log.d(HelloService.TAG, "Device status -" + device.status);
+            Log.d(KebappService.TAG, "Device status -" + device.status);
 
         }    else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
-            Log.d(HelloService.TAG, "WIFI_P2P_PEERS_CHANGED_ACTION received");
+            Log.d(KebappService.TAG, "WIFI_P2P_PEERS_CHANGED_ACTION received");
 
             // Request available peers from the wifi p2p manager. This is an
             // asynchronous call and the calling activity is notified with a
@@ -128,10 +123,10 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                 //           manager.requestPeers(channel, MainActivity.peerListListener);
                 manager.requestPeers(channel, (PeerListListener) service);
             }
-            Log.d(HelloService.TAG, "P2P peers changed");
+            Log.d(KebappService.TAG, "P2P peers changed");
         } else if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
 
-            Log.d(HelloService.TAG, "WIFI_P2P_STATE_CHANGED_ACTION received");
+            Log.d(KebappService.TAG, "WIFI_P2P_STATE_CHANGED_ACTION received");
 
         }
 
@@ -176,7 +171,7 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
     private class RequestOwner extends AsyncTask<Void, Void, Void> {
         private InetAddress groupOwnerAddress;
         //private ProducerActivityFragment fragment;
-        private Face mFace;
+        //private Face mFace;
 
         private String returnData = "No return data";
 
@@ -195,9 +190,9 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                         //        mProducerActivity.getFragmentManager().findFragmentById(R.id.producer_fragment);
                         oAddress = groupOwnerAddress.getHostAddress();
                         isOwner = info.isGroupOwner;
-                        mFace = new Face("localhost");
-                        KeyChain keyChain = DiscoverActivity.buildTestKeyChain();
-                        mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
+                        //mFace = new Face("localhost");
+                        KeyChain keyChain = InterestActivity.buildTestKeyChain();
+                        //mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
                         // String name = groupOwnerAddress.getHostName();
                         int mPort = 3000;
                         if (!isOwner) {
@@ -214,16 +209,9 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                         Log.i(WiFiDirectBroadcastReceiver.TAG, "Owner Address: " + oAddress);
                         app.setMyAddress(localIP);
                         Log.i(WiFiDirectBroadcastReceiver.TAG, "My Address:" + localIP);
-                       // if(oAddress.equals(localIP)) {
-                      //      app.addDevice("/"+localIP, myself.deviceName);
-                      //  }
+
                         Log.i(WiFiDirectBroadcastReceiver.TAG, "Register status: " + returnData);
-                       // activity.StartRequest();
 
-
-                        //fragment.updateGroupOwner(isOwner, oAddress);
-                        //fragment.updateMyAddress(localIP);
-                        //fragment.updateDisplayContent("myself", localIP, returnData, isOwner);
                     } catch (Exception e) {
                         e.printStackTrace();
                         Log.e(WiFiDirectBroadcastReceiver.TAG, e.toString());

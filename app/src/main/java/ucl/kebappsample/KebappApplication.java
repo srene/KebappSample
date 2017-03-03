@@ -18,6 +18,7 @@ public class KebappApplication extends Application {
     private ArrayList<String> deviceList;
     private String myAddress, myDeviceName, ownerAddress, ownerName;
     private ArrayList<String> selectedPhotoPaths;
+    private boolean enabled;
 
     public static KeyChain keyChain = buildTestKeyChain();
 
@@ -32,6 +33,8 @@ public class KebappApplication extends Application {
         this.myAddress = myAddress;
     }
 
+    public boolean getServiceEnabled() {return enabled; };
+    public void setServiceEnabled(boolean enabled) { this.enabled = enabled; }
     public String getMyAddress() {
         return myAddress;
     }
@@ -67,50 +70,7 @@ public class KebappApplication extends Application {
     public void setDeviceList(ArrayList<String> deviceList) {
         this.deviceList = deviceList;
     }
-    /*public void addDevice(String address, String name){
-        if (deviceList.isEmpty()){
-            DeviceInfo d = new DeviceInfo(address, name);
-            deviceList.add(d);
-        }
-        else{
-            for( int i = 0 ; i < deviceList.size() ; i ++){
-                if (deviceList.get(i).ipAddress.equals(address)){
-                    deviceList.remove(i);
-                    break;
-                }
-            }
-            DeviceInfo d = new DeviceInfo(address, name);
-            deviceList.add(d);
-        }
-    }
 
-    public void addDevice(DeviceInfo info) {
-        deviceList.add(info);
-    }*/
-
-    public void clearSelectedPhotoPaths(){
-        selectedPhotoPaths.clear();
-        selectedPhotoPaths = new ArrayList<>();
-    }
-
-    public ArrayList<String> getSelectedPhotoPaths(){
-        return selectedPhotoPaths;
-    }
-    public void addSelectedPhoto(String path){
-        if (path != null)
-            selectedPhotoPaths.add(path);
-    }
-    public void clearDeviceList(){
-        deviceList.clear();
-        deviceList = new ArrayList<>();
-    }
-
-    public int getDeviceListLength(){
-        return deviceList.size();
-    }
-    public int getSelectedPhotoPathsLength(){
-        return selectedPhotoPaths.size();
-    }
 
     public static KeyChain buildTestKeyChain() {
         MemoryIdentityStorage identityStorage = new MemoryIdentityStorage();

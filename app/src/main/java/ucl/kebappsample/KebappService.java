@@ -22,40 +22,50 @@ import android.net.wifi.p2p.WifiP2pManager.PeerListListener;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest;
 import android.os.AsyncTask;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Binder;
 import android.util.Log;
 import android.widget.TextView;
 
-import net.named_data.jndn.Data;
-import net.named_data.jndn.Face;
+import net.named_data.jndn.*;
 import net.named_data.jndn.Interest;
+import net.named_data.jndn.Face;
 import net.named_data.jndn.Name;
-import net.named_data.jndn.OnInterest;
-import net.named_data.jndn.OnRegisterFailed;
 import net.named_data.jndn.security.KeyChain;
-import net.named_data.jndn.security.SecurityException;
 import net.named_data.jndn.security.identity.IdentityManager;
 import net.named_data.jndn.security.identity.MemoryIdentityStorage;
 import net.named_data.jndn.security.identity.MemoryPrivateKeyStorage;
 import net.named_data.jndn.transport.Transport;
 import net.named_data.jndn.util.Blob;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.Method;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
+
+import de.robv.android.xposed.IXposedHookLoadPackage;
+import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XC_MethodReplacement;
+
+
 public class KebappService extends Service implements
-        ConnectionInfoListener,PeerListListener {
+        ConnectionInfoListener,PeerListListener, IXposedHookLoadPackage {
 
     private Channel channel;
     private BroadcastReceiver receiver = null;
@@ -66,6 +76,7 @@ public class KebappService extends Service implements
     public static final String TAG = "KebappService";
 
     // TXT RECORD properties
+    public static final long SERVICE_BROADCASTING_INTERVAL = 1000;
     public static final String TXTRECORD_PROP_AVAILABLE = "available";
     public static final String SERVICE_INSTANCE = "_kebapptest";
     public static final String SERVICE_REG_TYPE = "_kebapp._tcp";
@@ -76,7 +87,7 @@ public class KebappService extends Service implements
 
     static final int SERVER_PORT = 4545;
     private WifiP2pDnsSdServiceRequest serviceRequest;
-
+    private WifiP2pInfo info;
     //public MyListFragment peersList;
 
     private final IntentFilter intentFilter = new IntentFilter();
@@ -90,6 +101,23 @@ public class KebappService extends Service implements
     private String mAddress = "";
     private KeyChain keyChain;
 
+    IBinder mBinder = new LocalBinder();
+
+    private Handler mServiceBroadcastingHandler;
+
+    private int faceId;
+
+    @Override
+    public IBinder onBind(Intent arg0) {
+        Log.i(TAG, "Service onBind");
+        return mBinder;
+    }
+    public class LocalBinder extends Binder {
+        public KebappService getServerInstance() {
+            return KebappService.this;
+        }
+    }
+
     @Override
     public void onCreate() {
         Log.i(TAG, "Service onCreate");
@@ -97,8 +125,20 @@ public class KebappService extends Service implements
         //setContentView(R.layout.activity_main);
         //statusTxtView = (TextView) findViewById(R.id.status_text);
         //super.onResume();
-        receiver = new WiFiDirectBroadcastReceiver(manager, channel, this, (KebappApplication)getApplication());
-        registerReceiver(receiver, intentFilter);
+        //Indicates whether Wi-Fi P2P is enabled
+        intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
+        //Indicates that the available peer list has changed.
+        intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
+        //Indicates the state of Wi-Fi P2P connectivity has changed.
+        intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
+        //Indicates this device's configuration details have changed.
+        intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
+
+        manager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
+        channel = manager.initialize(KebappService.this, getMainLooper(), null);
+        receiver = new WiFiDirectBroadcastReceiver(manager, channel, this,(KebappApplication)getApplication());
+        mServiceBroadcastingHandler = new Handler();
+        this.registerReceiver(this.receiver, intentFilter);
         isRunning = true;
     }
 
@@ -109,22 +149,147 @@ public class KebappService extends Service implements
 
         //Creating new thread for my service
         //Always write your long running tasks in a separate thread, to avoid ANR
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
+        //new Thread(new Runnable() {
+       //     @Override
+       //     public void run() {
 
                 Log.i(TAG, "Service onStartCommand thread");
 
-                intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
-                intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
-                intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
-                intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
 
-                manager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
-                channel = manager.initialize(KebappService.this, getMainLooper(), null);
-                startRegistrationAndDiscovery();
+               // startRegistrationAndDiscovery();
 
+
+                //Your logic that service will perform will be placed here
+                //In this example we are just looping and waits for 1000 milliseconds in each loop.
+                /*for (int i = 0; i < 5; i++) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (Exception e) {
+                    }
+
+                    if(isRunning){
+                        Log.i(TAG, "Service running");
+                    }
+                }*/
+
+                //Stop service once it finishes its task
+                //stopSelf();
+        //    }
+        //}).start();
+
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+
+                    Log.i(TAG, "Start produce service thread");
+
+                    final ArrayList<String> prefixData = new ArrayList<>();
+
+                    KeyChain keyChain = buildTestKeyChain();
+                    mFace = new Face("localhost");
+                    mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
+
+                    KebappApplication app = (KebappApplication) getApplication();
+                    //String oAddress = app.getOwnerAddress();
+                    //Log.i(TAG, "Address " + oAddress + " " + app.getMyAddress());
+                    //if(oAddress!=app.getMyAddress()) {
+
+                    //}
+                    Log.i(TAG, "My Address is: " + mAddress);
+                  //  Log.i(TAG, "Address " + info.groupOwnerAddress + " " + info.isGroupOwner);
+
+                    // Register the prefix with the device's address
+                    mFace.registerPrefix(new Name("/kebapp/maps"), new OnInterest() {
+                        @Override
+                        public void onInterest(Name name, Interest interest, Transport transport, long l) {
+                            //      try {
+
+                            //Toast.makeText(getApplicationContext(), "Interest Received: " + interest.getName().toUri(), Toast.LENGTH_LONG).show();
+                            try {
+
+                                int size = interest.getName().size();
+                                Name requestName = interest.getName();
+                                Log.i(TAG, "Size: " + size);
+                                Log.i(TAG, "Interest Name: " + interest.getName().toUri());
+                                String source = requestName.get(3).toEscapedString();
+                                String dest = requestName.get(4).toEscapedString();
+                                String mode = requestName.get(5).toEscapedString();
+                                Log.i(TAG, "Interest source: " + source);
+                                Log.i(TAG, "Interest dest: " + dest);
+                                Log.i(TAG, "Interest mode: " + mode);
+                                int seqNo = (int)requestName.get(6).toSequenceNumber();
+
+                                String urlString = new String("http://maps.googleapis.com/maps/api/directions/json?origin=" + source + "&destination=" + dest + "&mode=" + mode);
+
+                                prefixData.clear();
+
+                                JSONObject jsonObject = null;
+                                try {
+                                    jsonObject = getJSONObjectFromURL(urlString);
+                                } catch (java.net.UnknownHostException e) {
+                                    e.printStackTrace();
+                                    return;
+                                }
+
+                                String content = jsonObject.toString();
+
+                                Data data = new Data(requestName);
+
+                                // Split the data
+                                int fixLength = 8000;
+                                int cnt = (content.length() / fixLength) + 1;
+                                Log.d(TAG,"Content packets "+cnt);
+
+                                for(int i = 0; i < cnt; i++) {
+                                    Log.d(TAG,"Prefix "+1);
+                                    prefixData.add(content.substring(i*fixLength, Math.min((i+1)*fixLength, content.length())));
+                                }
+
+                                if(seqNo == 1) {
+                                    data.setContent(new Blob(""+prefixData.size()));
+                                }
+                                else {
+                                    data.setContent(new Blob(prefixData.get(seqNo - 2)));
+                                }
+
+
+                                mFace.putData(data);
+
+
+                                Log.i(TAG, "The device info has been sent");
+                                Log.i(TAG, "The content is: " + content);
+                                Log.i(TAG, "The content is: " + data.getContent().toString());
+                                // Parse your json here
+
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+
+
+                        }
+                    }, new OnRegisterFailed() {
+                        @Override
+                        public void onRegisterFailed(Name name) {
+                            Log.e(TAG, "Failed to register the data");
+                        }
+                    });
+
+                    while (true) {
+                        // Log.i(TAG, "Service is running");
+                        mFace.processEvents();
+                    }
+
+                } catch (Exception e) {
+                    Log.e(TAG, e.toString());
+                }
             }
+
         }).start();
 
         return Service.START_STICKY;
@@ -132,22 +297,24 @@ public class KebappService extends Service implements
 
 
     @Override
-    public IBinder onBind(Intent arg0) {
-        Log.i(TAG, "Service onBind");
-        return null;
-    }
-
-    @Override
     public void onDestroy() {
 
         isRunning = false;
         stopSelf();
         disconnect();
-        unregisterReceiver(receiver);
+        unregisterReceiver(this.receiver);
         Log.i(TAG, "Service onDestroy");
     }
 
     public void disconnect() {
+
+        try {
+            Nfdc nfdc = new Nfdc();
+            nfdc.ribUnregisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId);
+            nfdc.shutdown();
+        } catch (Exception e) {
+            Log.d(TAG, "Error " + e);
+        }
         if (manager != null && channel != null) {
             manager.requestGroupInfo(channel, new GroupInfoListener() {
                 @Override
@@ -166,6 +333,7 @@ public class KebappService extends Service implements
                                 Log.d(TAG, "removeGroup onFailure -" + reason);
                             }
                         });
+
                     }
                 }
             });
@@ -174,13 +342,46 @@ public class KebappService extends Service implements
     /**
      * Registers a local service and then initiates a service discovery
      */
-    private void startRegistrationAndDiscovery() {
-        Map<String, String> record = new HashMap<String, String>();
-        record.put(TXTRECORD_PROP_AVAILABLE, "visible");
 
-        WifiP2pDnsSdServiceInfo service = WifiP2pDnsSdServiceInfo.newInstance(
+    private Runnable mServiceBroadcastingRunnable = new Runnable() {
+        @Override
+        public void run() {
+            /*manager.stopPeerDiscovery(channel,new WifiP2pManager.ActionListener() {
+                @Override
+                public void onSuccess() {
+                    Log.d(TAG,"Peers discovery stopped");
+                }
+
+                @Override
+                public void onFailure(int error) {
+                }
+            });*/
+            manager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
+                @Override
+                public void onSuccess() {
+                    Log.d(TAG,"Peers discovery initiated");
+                }
+
+                @Override
+                public void onFailure(int error) {
+                }
+            });
+            if(isRunning)mServiceBroadcastingHandler
+                    .postDelayed(mServiceBroadcastingRunnable, SERVICE_BROADCASTING_INTERVAL);
+        }
+    };
+
+
+    public void startRegistrationAndDiscovery() {
+        Map<String, String> record = new HashMap<String, String>();
+       // record.put(TXTRECORD_PROP_AVAILABLE, "visible");
+        record.put("listenport", String.valueOf(SERVER_PORT));
+        record.put("buddyname", "John Doe" + (int) (Math.random() * 1000));
+        record.put("available", "visible");
+
+       final WifiP2pDnsSdServiceInfo service = WifiP2pDnsSdServiceInfo.newInstance(
                 SERVICE_INSTANCE, SERVICE_REG_TYPE, record);
-        manager.addLocalService(channel, service, new WifiP2pManager.ActionListener() {
+        /*manager.addLocalService(channel, service, new WifiP2pManager.ActionListener() {
 
             @Override
             public void onSuccess() {
@@ -191,9 +392,36 @@ public class KebappService extends Service implements
             public void onFailure(int error) {
                 Log.d(TAG,"Failed to add a service");
             }
-        });
+        });*/
 
-        discoverService();
+        manager.clearLocalServices(channel, new WifiP2pManager.ActionListener() {
+                @Override
+                public void onSuccess() {
+                    manager.addLocalService(channel, service,
+                            new WifiP2pManager.ActionListener() {
+
+                                @Override
+                                public void onSuccess() {
+                                    // service broadcasting started
+
+                                 //   mServiceBroadcastingHandler.postDelayed(mServiceBroadcastingRunnable, SERVICE_BROADCASTING_INTERVAL);
+                                }
+
+                                @Override
+                                public void onFailure(int error) {
+                                    // react to failure of adding the local service
+                                }
+                            });
+                }
+
+                @Override
+                public void onFailure(int error) {
+                    // react to failure of clearing the local services
+                }
+            });
+
+
+       discoverService();
 
     }
 
@@ -260,6 +488,7 @@ public class KebappService extends Service implements
 
         // After attaching listeners, create a service request and initiate
         // discovery.
+
         serviceRequest = WifiP2pDnsSdServiceRequest.newInstance();
         manager.addServiceRequest(channel, serviceRequest,
                 new ActionListener() {
@@ -294,8 +523,8 @@ public class KebappService extends Service implements
         WifiP2pConfig config = new WifiP2pConfig();
         config.deviceAddress = service.device.deviceAddress;
         config.wps.setup = WpsInfo.PBC;
-        config.groupOwnerIntent = 15; // I want this device to become the owner
-        if (serviceRequest != null)
+        //config.groupOwnerIntent = 15; // I want this device to become the owner
+       /* if (serviceRequest != null)
             manager.removeServiceRequest(channel, serviceRequest,
                     new ActionListener() {
 
@@ -307,83 +536,56 @@ public class KebappService extends Service implements
                         public void onFailure(int arg0) {
                         }
                     });
-
+*/
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Nfdc nfdc = new Nfdc();
+                    int faceId = 0;
+                    faceId = nfdc.faceCreate("udp4://192.168.49.255");
+                    //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
+                    //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
+                    nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
+                    nfdc.shutdown();
+                } catch (Exception e) {
+                    Log.d(TAG, "Error " + e);
+                }
+            }
+        }).start();
         manager.connect(channel, config, new ActionListener() {
 
             @Override
             public void onSuccess() {
                 Log.d(TAG,"Connecting to service");
 
-
-                new Thread(new Runnable() {
+              //  ReceiverMulticastAsyncTask task = new ReceiverMulticastAsyncTask();
+              //  task.execute();
+               /* new Thread(new Runnable() {
                     @Override
                     public void run() {
+                        DatagramSocket clientSocket=null;
                         try {
-
-                            Log.i(TAG, "Start produce service thread");
-
-                            KeyChain keyChain = buildTestKeyChain();
-                            mFace = new Face("localhost");
-                            mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
-
-                            Log.i(TAG, "My Address is: " + mAddress);
-
-                            // Register the prefix with the device's address
-                            mFace.registerPrefix(new Name("/kebapp/maps"), new OnInterest() {
-                                @Override
-                                public void onInterest(Name name, Interest interest, Transport transport, long l) {
-                                    //      try {
-                                    int size = interest.getName().size();
-                                    Name requestName = interest.getName();
-                                    Log.i(TAG, "Size: " + size);
-                                    Log.i(TAG, "Interest Name: " + interest.getName().toUri());
-                                    String source = requestName.get(2).toEscapedString();
-                                    String dest = requestName.get(3).toEscapedString();
-                                    Log.i(TAG, "Interest source: " + source);
-                                    Log.i(TAG, "Interest dest: " + dest);
-
-                                    String urlString = new String("http://maps.googleapis.com/maps/api/directions/json?origin="+source+"&destination="+dest);
-                                    //Toast.makeText(getApplicationContext(), "Interest Received: " + interest.getName().toUri(), Toast.LENGTH_LONG).show();
-                                    try{
-                                        JSONObject jsonObject = getJSONObjectFromURL(urlString);
-                                        JSONArray routes = jsonObject.getJSONArray("routes");
-                                        JSONObject legs = routes.getJSONObject(0).getJSONArray("legs").getJSONObject(0).getJSONObject("distance");
-
-                                        String content = legs.toString();
-
-                                        Data data = new Data(requestName);
-                                        data.setContent(new Blob(content));
-
-                                        mFace.putData(data);
-                                        Log.i(TAG, "The device info has been send");
-                                        Log.i(TAG, "The content is: " + content);
-                                        // Parse your json here
-
-                                    } catch (IOException e) {
-                                        e.printStackTrace();
-                                    } catch (JSONException e) {
-                                        e.printStackTrace();
-                                    }
-
-                                }
-                            }, new OnRegisterFailed() {
-                                @Override
-                                public void onRegisterFailed(Name name) {
-                                    Log.e(TAG, "Failed to register the data");
-                                }
-                            });
-
-                            while(true) {
-                               // Log.i(TAG, "Service is running");
-                                mFace.processEvents();
+                            clientSocket = new DatagramSocket(5454);
+                            byte[] receiveData = new byte[1024];
+                            byte[] sendData = new byte[1024];
+                            while(true)
+                            {
+                                DatagramPacket receivePacket = new     DatagramPacket(receiveData,receiveData.length);
+                                clientSocket.receive(receivePacket);
+                                String sentence = new String(receivePacket.getData(),0,receivePacket.getLength());
+                                InetAddress IPAddress = receivePacket.getAddress();
+                                int port = receivePacket.getPort();
+                                Log.d(TAG,"MESSAGE RECEIVED  "+sentence+"  "+IPAddress+"         "+port);
                             }
-
-                        } catch (Exception e) {
-                            Log.e(TAG, e.toString());
+                        } catch (IOException e) {
+                            // TODO Auto-generated catch block
+                            e.printStackTrace();
                         }
                     }
+                }).start();*/
 
-                }).start();
+
             }
 
             @Override
@@ -395,6 +597,35 @@ public class KebappService extends Service implements
 
     }
 
+    @Override
+    public void handleLoadPackage(LoadPackageParam lpparam) {
+        try {
+            Log.d(TAG, "handleloadPackage ");
+
+            Class<?> wifiP2pService = Class.forName("android.net.wifi.p2p.WifiP2pService", false, lpparam.classLoader);
+            for (Class<?> c : wifiP2pService.getDeclaredClasses()) {
+                XposedBridge.log("inner class " + c.getSimpleName());
+                if ("P2pStateMachine".equals(c.getSimpleName())) {
+                    XposedBridge.log("Class " + c.getName() + " found");
+                    Method notifyInvitationReceived = c.getDeclaredMethod("notifyInvitationReceived");
+                    final Method sendMessage = c.getMethod("sendMessage", int.class);
+
+                    XposedBridge.hookMethod(notifyInvitationReceived, new XC_MethodReplacement() {
+                        @Override
+                        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                            final int PEER_CONNECTION_USER_ACCEPT = 0x00023000 + 2;
+                            sendMessage.invoke(param.thisObject, PEER_CONNECTION_USER_ACCEPT);
+                            return null;
+                        }
+                    });
+
+                    break;
+                }
+            }
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
 
     @Override
     public void onConnectionInfoAvailable(WifiP2pInfo p2pInfo) {
@@ -406,7 +637,8 @@ public class KebappService extends Service implements
          */
         //MyListFragment fragment = (MyListFragment) getFragmentManager()
         //        .findFragmentByTag("services");
-
+        Log.d(TAG, "Connected info "+ p2pInfo);
+        info = p2pInfo;
         if (p2pInfo.isGroupOwner) {
             Log.d(TAG, "Connected as group owner "+ p2pInfo.groupOwnerAddress.getHostAddress());
           /*  try {
@@ -431,12 +663,14 @@ public class KebappService extends Service implements
         //peersList.addItems(p2pInfo);
         //statusTxtView.setVisibility(View.GONE);
 
+
+
     }
     @Override
     public void onPeersAvailable(WifiP2pDeviceList peerList) {
 
         // Out with the old, in with the new.
-     /* peers.clear();
+        peers.clear();
         peers.addAll(peerList.getDeviceList());
 
         // If an AdapterView is backed by this data, notify it
@@ -444,50 +678,31 @@ public class KebappService extends Service implements
         // peers, trigger an update.
         // ((WiFiPeerListAdapter) getListAdapter()).notifyDataSetChanged();
 
-        peersList.clearItems();
+      //  peersList.clearItems();
+        ArrayList<String> list = new ArrayList<String>();
         for(int i= 0;i<peers.size();i++)
         {
-            WifiP2pDevice dev = (WifiP2pDevice)peers.get(0);
-            Log.d(MainActivity.TAG, "Device "+dev);
-            if(dev.status==0)
-                peersList.addItems(dev.deviceName+" "+ service.instanceName);
+            WifiP2pDevice dev = (WifiP2pDevice)peers.get(i);
+            Log.d(TAG, "Device "+dev);
+            if(dev.status==0) {
+                Log.d(TAG, "Peers " + peerList.getDeviceList().size());
+
+                list.add("Device: " + dev.deviceName);
+            }
 
         }
-        Log.d(MainActivity.TAG, "Peers "+peers.size());
+        KebappApplication app = (KebappApplication) getApplication();
+        app.setDeviceList(list);
+
+        Log.d(TAG, "Peers "+peers.size());
         if (peers.size() == 0) {
-            Log.d(MainActivity.TAG, "No devices found");
+            Log.d(TAG, "No devices found");
+            if(app.getServiceEnabled())startRegistrationAndDiscovery();
             return;
         }
-        */
+
     }
 
-    // AsyncTask for register the routes on NFD
-    private class RegisterNFD extends AsyncTask<Void, Void, Void> {
-
-        private static final String TAG = "Register NFD Task";
-        private boolean shouldStop = false;
-        private Face mFace;
-        //private KebappApplication app;
-        //private Context context;
-
-        @Override
-        protected Void doInBackground(Void... params) {
-
-            try {
-
-                Nfdc ndfc = new Nfdc();
-                int faceID = ndfc.faceCreate("udp://127.0.0.1");
-                ndfc.ribRegisterPrefix(new Name("/kebapp"), faceID, 10, true, false);
-                ndfc.shutdown();
-
-            } catch (SecurityException e) {
-                Log.e(RegisterNFD.TAG, "Register Failed");
-            } catch(Exception e) {
-                Log.e(RegisterNFD.TAG, e.toString());
-            }
-            return null;
-        }
-    }
 
 
     public static KeyChain buildTestKeyChain() throws net.named_data.jndn.security.SecurityException {
@@ -524,6 +739,21 @@ public class KebappService extends Service implements
 
         //char[] buffer = new char[1024];
 
+        /*
+                                     JSONArray routes = jsonObject.getJSONArray("routes");
+
+                                //JSONObject legs = routes.getJSONObject(0).getJSONArray("legs").getJSONObject(0).getJSONObject("distance");
+                                JSONArray legs = routes.getJSONObject(0).getJSONArray("legs");
+                                JSONArray steps = legs.getJSONObject(0).getJSONArray("steps");
+
+                                String content = steps.toString();
+
+                                //JSONObject obj = new JSONObject();
+                                //obj.put("id", "JSON Object test");
+                                //String content = obj.toString();
+
+         */
+
         String jsonString;
 
         StringBuilder sb = new StringBuilder();
@@ -538,4 +768,38 @@ public class KebappService extends Service implements
 
         return new JSONObject(jsonString);
     }
+
+    public class ReceiverMulticastAsyncTask extends AsyncTask<Void, Integer ,String > {
+
+        @Override
+        protected String doInBackground(Void... params) {
+
+
+            DatagramSocket clientSocket=null;
+            try {
+                clientSocket = new DatagramSocket(5454);
+                byte[] receiveData = new byte[1024];
+                byte[] sendData = new byte[1024];
+                while(true)
+                {
+                    DatagramPacket receivePacket = new     DatagramPacket(receiveData,receiveData.length);
+                    clientSocket.receive(receivePacket);
+                    String sentence = new String(receivePacket.getData(),0,receivePacket.getLength());
+                    InetAddress IPAddress = receivePacket.getAddress();
+                    int port = receivePacket.getPort();
+                    Log.d(TAG,"MESSAGE RECEIVED  "+sentence+"  "+IPAddress+"         "+port);
+                }
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            return "";
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            //do whatever...
+        }
+    }
+
 }
