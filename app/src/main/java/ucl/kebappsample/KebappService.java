@@ -737,23 +737,6 @@ public class KebappService extends Service implements
 
         BufferedReader br=new BufferedReader(new InputStreamReader(url.openStream()));
 
-        //char[] buffer = new char[1024];
-
-        /*
-                                     JSONArray routes = jsonObject.getJSONArray("routes");
-
-                                //JSONObject legs = routes.getJSONObject(0).getJSONArray("legs").getJSONObject(0).getJSONObject("distance");
-                                JSONArray legs = routes.getJSONObject(0).getJSONArray("legs");
-                                JSONArray steps = legs.getJSONObject(0).getJSONArray("steps");
-
-                                String content = steps.toString();
-
-                                //JSONObject obj = new JSONObject();
-                                //obj.put("id", "JSON Object test");
-                                //String content = obj.toString();
-
-         */
-
         String jsonString;
 
         StringBuilder sb = new StringBuilder();

@@ -404,6 +404,7 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                 Interest interest = new Interest(requestName);
                 interest.setInterestLifetimeMilliseconds(10000);
                 Log.i(RequestDeviceListTask.TAG, "Interest created " + interest.getName().get(3).toEscapedString());
+
                 results.clear();
                 mFace.expressInterest(interest, new OnData() {
                     @Override
@@ -425,6 +426,7 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                                 contentName.appendSequenceNumber(i);
                                 Interest cInterest = new Interest(contentName);
                                 cInterest.setInterestLifetimeMilliseconds(2000);
+
                                 contentFace.expressInterest(cInterest, new OnData() {
                                     @Override
                                     public void onData(Interest interest, Data data) {
@@ -453,7 +455,8 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                                     }
                                 });
 
-                                while (!shouldStop && !isCancelled()) {
+
+                                while (!shouldStop&&!isCancelled()) {
                                     contentFace.processEvents();
                                 }
                                 if (timeout) i--;
@@ -484,17 +487,27 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
 
                                         appendStatus("Result received");
                                         JSONArray routes = object.getJSONArray("routes");
+
                                         JSONArray legs = routes.getJSONObject(0).getJSONArray("legs");
+
+                                        Log.i(RequestDeviceListTask.TAG, "latlng 3 ");
+
+                                        Log.i(RequestDeviceListTask.TAG, "latlng 2");
+
+
                                         JSONArray steps = legs.getJSONObject(0).getJSONArray("steps");
 
                                         StringBuffer html = new StringBuffer();
                                         JSONObject latlng = new JSONObject();
-                                        for (int i = 0; i < steps.length(); i++) {
-                                            Log.d(TAG, "step :" + steps.getJSONObject(i).getString("html_instructions"));
+
+                                        for(int i = 0; i < steps.length(); i++)
+                                        {
+                                            Log.d(TAG,"step :"+steps.getJSONObject(i).getString("html_instructions"));
                                             html.append(steps.getJSONObject(i).getString("html_instructions"));
                                             html.append("<br>");
-                                            Log.d(TAG, "step :" + html.toString());
+                                            Log.d(TAG,"step :"+html.toString());
                                             latlng = steps.getJSONObject(i).getJSONObject("end_location");
+
                                         }
                                         String content = html.toString();
                                         LatLng coordinate = new LatLng(Double.parseDouble(latlng.getString("lat")), Double.parseDouble(latlng.getString("lng")));
@@ -506,7 +519,7 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                                                 .strokeColor(Color.BLUE)
                                                 .fillColor(Color.BLUE));
 
-                                        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.FILL_PARENT);
+                                        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.FILL_PARENT);
                                         lp.weight = 1;
                                         fragment.getView().setLayoutParams(lp);
                                         resultTxtView.setText(Html.fromHtml(content));
