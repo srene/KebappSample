@@ -5,6 +5,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
@@ -27,6 +29,8 @@ import android.os.IBinder;
 import android.os.Binder;
 import android.util.Log;
 import android.widget.TextView;
+
+import com.intel.jndn.management.types.FaceStatus;
 
 import net.named_data.jndn.*;
 import net.named_data.jndn.Interest;
@@ -53,9 +57,11 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import static android.os.SystemClock.sleep;
 import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -65,10 +71,12 @@ import de.robv.android.xposed.XC_MethodReplacement;
 
 
 public class KebappService extends Service implements
-        ConnectionInfoListener,PeerListListener, IXposedHookLoadPackage {
+        ConnectionInfoListener,PeerListListener{ //, IXposedHookLoadPackage {
 
     private Channel channel;
     private BroadcastReceiver receiver = null;
+    private BroadcastReceiver apReceiver = null;
+
     private List peers = new ArrayList();
 
     int devices = 0;
@@ -76,7 +84,7 @@ public class KebappService extends Service implements
     public static final String TAG = "KebappService";
 
     // TXT RECORD properties
-    public static final long SERVICE_BROADCASTING_INTERVAL = 1000;
+    public static final long SERVICE_BROADCASTING_INTERVAL = 3000;
     public static final String TXTRECORD_PROP_AVAILABLE = "available";
     public static final String SERVICE_INSTANCE = "_kebapptest";
     public static final String SERVICE_REG_TYPE = "_kebapp._tcp";
@@ -84,6 +92,7 @@ public class KebappService extends Service implements
     public static final int MESSAGE_READ = 0x400 + 1;
     public static final int MY_HANDLE = 0x400 + 2;
     private WifiP2pManager manager;
+    private WifiManager apManager;
 
     static final int SERVER_PORT = 4545;
     private WifiP2pDnsSdServiceRequest serviceRequest;
@@ -91,11 +100,14 @@ public class KebappService extends Service implements
     //public MyListFragment peersList;
 
     private final IntentFilter intentFilter = new IntentFilter();
+    private final IntentFilter filter = new IntentFilter();
     private TextView statusTxtView;
 
     private WiFiP2pService service;
 
-    private boolean isRunning  = false;
+    //private boolean isRunning  = false;
+    private boolean isDirectRegistered = false;
+    private boolean isAPRegistered = false;
 
     private Face mFace;
     private String mAddress = "";
@@ -106,7 +118,7 @@ public class KebappService extends Service implements
     private Handler mServiceBroadcastingHandler;
 
     private int faceId;
-
+    KebappApplication kapp;
     @Override
     public IBinder onBind(Intent arg0) {
         Log.i(TAG, "Service onBind");
@@ -134,49 +146,29 @@ public class KebappService extends Service implements
         //Indicates this device's configuration details have changed.
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
 
+        filter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
+        filter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
+
+        apManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+        kapp = (KebappApplication)getApplication();
+
+        apReceiver = new WiFiBroadcastReceiver(apManager, this,kapp);
+        this.registerReceiver(this.apReceiver, filter);
+
+
         manager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
         channel = manager.initialize(KebappService.this, getMainLooper(), null);
-        receiver = new WiFiDirectBroadcastReceiver(manager, channel, this,(KebappApplication)getApplication());
-        mServiceBroadcastingHandler = new Handler();
+        receiver = new WiFiDirectBroadcastReceiver(manager, channel, this,kapp);
+
         this.registerReceiver(this.receiver, intentFilter);
-        isRunning = true;
+        mServiceBroadcastingHandler = new Handler();
+
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
 
         Log.i(TAG, "Service onStartCommand");
-
-        //Creating new thread for my service
-        //Always write your long running tasks in a separate thread, to avoid ANR
-        //new Thread(new Runnable() {
-       //     @Override
-       //     public void run() {
-
-                Log.i(TAG, "Service onStartCommand thread");
-
-
-               // startRegistrationAndDiscovery();
-
-
-                //Your logic that service will perform will be placed here
-                //In this example we are just looping and waits for 1000 milliseconds in each loop.
-                /*for (int i = 0; i < 5; i++) {
-                    try {
-                        Thread.sleep(1000);
-                    } catch (Exception e) {
-                    }
-
-                    if(isRunning){
-                        Log.i(TAG, "Service running");
-                    }
-                }*/
-
-                //Stop service once it finishes its task
-                //stopSelf();
-        //    }
-        //}).start();
-
 
         new Thread(new Runnable() {
             @Override
@@ -191,7 +183,7 @@ public class KebappService extends Service implements
                     mFace = new Face("localhost");
                     mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
 
-                    KebappApplication app = (KebappApplication) getApplication();
+
                     //String oAddress = app.getOwnerAddress();
                     //Log.i(TAG, "Address " + oAddress + " " + app.getMyAddress());
                     //if(oAddress!=app.getMyAddress()) {
@@ -299,22 +291,57 @@ public class KebappService extends Service implements
     @Override
     public void onDestroy() {
 
-        isRunning = false;
+       // isRunning = false;
         stopSelf();
+        if(isDirectRegistered)unregisterReceiver(this.receiver);
+        if(isAPRegistered)unregisterReceiver(this.apReceiver);
+        KebappApplication kapp = (KebappApplication)getApplication();
+        apManager.removeNetwork(kapp.getNetId());
+
         disconnect();
-        unregisterReceiver(this.receiver);
         Log.i(TAG, "Service onDestroy");
     }
 
-    public void disconnect() {
+    public void disconnect()
+    {
+        Log.d(TAG,"Disconnect");
+     //   if(isAPRegistered)unregisterReceiver(this.apReceiver);
+     //   if(isDirectRegistered)unregisterReceiver(this.receiver);
+        disconnectWifiDirect();
+        disconnectAP();
+    }
 
-        try {
-            Nfdc nfdc = new Nfdc();
-            nfdc.ribUnregisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId);
-            nfdc.shutdown();
-        } catch (Exception e) {
-            Log.d(TAG, "Error " + e);
-        }
+    public void disconnectAP()
+    {
+        Log.d(TAG,"DisconnectAP");
+        isAPRegistered = false;
+        apManager.disconnect();
+
+        apManager.removeNetwork(kapp.getNetId());
+        //if(isAPRegistered) unregisterReceiver(this.apReceiver);
+
+    }
+
+    public void disconnectWifiDirect() {
+        //isDirectRegistered = false;
+        //stopSelf();
+        Log.d(TAG,"DisconnectWifiDirect");
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Nfdc nfdc = new Nfdc();
+                    nfdc.faceDestroy(app.);
+                    List<FaceStatus> faceList = nfdc.faceList();
+                    Iterator<FaceStatus> faceIterator = faceList.iterator();
+                    for(FaceStatus f : faceList)
+                        Log.d(TAG,"Face"+f.getLocalUri());
+
+                } catch (Exception e) {
+                    Log.d(TAG, "Error " + e);
+                }
+            }
+        }).start();
         if (manager != null && channel != null) {
             manager.requestGroupInfo(channel, new GroupInfoListener() {
                 @Override
@@ -343,10 +370,10 @@ public class KebappService extends Service implements
      * Registers a local service and then initiates a service discovery
      */
 
-    private Runnable mServiceBroadcastingRunnable = new Runnable() {
+   /* private Runnable mServiceBroadcastingRunnable = new Runnable() {
         @Override
         public void run() {
-            /*manager.stopPeerDiscovery(channel,new WifiP2pManager.ActionListener() {
+            manager.stopPeerDiscovery(channel,new WifiP2pManager.ActionListener() {
                 @Override
                 public void onSuccess() {
                     Log.d(TAG,"Peers discovery stopped");
@@ -355,7 +382,7 @@ public class KebappService extends Service implements
                 @Override
                 public void onFailure(int error) {
                 }
-            });*/
+            });
             manager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
                 @Override
                 public void onSuccess() {
@@ -369,8 +396,21 @@ public class KebappService extends Service implements
             if(isRunning)mServiceBroadcastingHandler
                     .postDelayed(mServiceBroadcastingRunnable, SERVICE_BROADCASTING_INTERVAL);
         }
-    };
+    };*/
 
+
+    public void startKebapp ()
+    {
+
+
+        apManager.startScan();
+       // apManager.setWifiEnabled(false);
+       // apManager.setWifiEnabled(true);
+        mServiceBroadcastingHandler.postDelayed(mServiceBroadcastingRunnable, SERVICE_BROADCASTING_INTERVAL);
+        startRegistrationAndDiscovery();
+        isAPRegistered = true;
+        isDirectRegistered = false;
+    }
 
     public void startRegistrationAndDiscovery() {
         Map<String, String> record = new HashMap<String, String>();
@@ -445,20 +485,6 @@ public class KebappService extends Service implements
                         if (instanceName.equalsIgnoreCase(SERVICE_INSTANCE)) {
 
                             devices++;
-
-                            // update the UI and add the item the discovered
-                            // device.
-                         /*   WiFiDirectServicesList fragment = (WiFiDirectServicesList) getFragmentManager()
-                                    .findFragmentByTag("services");
-                            if (fragment != null) {
-                                WiFiDevicesAdapter adapter = ((WiFiDevicesAdapter) fragment
-                                        .getListAdapter());
-                                WiFiP2pService service = new WiFiP2pService();
-                                service.device = srcDevice;
-                                service.instanceName = instanceName;
-                                service.serviceRegistrationType = registrationType;
-                                adapter.add(service);
-                                adapter.notifyDataSetChanged();*/
                             service = new WiFiP2pService();
                             service.device = srcDevice;
                             service.instanceName = instanceName;
@@ -518,6 +544,28 @@ public class KebappService extends Service implements
         });
     }
 
+    public void connectAp(final String ipAddress)
+    {
+        Log.d(TAG,"ConnectAp");
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Nfdc nfdc = new Nfdc();
+                    int faceId = 0;
+                    Log.d(TAG,"IP "+ipAddress);
+                    sleep(5000);
+                    faceId = nfdc.faceCreate("udp4://"+ipAddress);
+                    //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
+                    //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
+                    nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
+                    nfdc.shutdown();
+                } catch (Exception e) {
+                    Log.d(TAG, "Error " + e);
+                }
+            }
+        }).start();
+    }
     public void connectP2p(WiFiP2pService service) {
         Log.d(TAG, "connectP2p ");
         WifiP2pConfig config = new WifiP2pConfig();
@@ -543,6 +591,7 @@ public class KebappService extends Service implements
                 try {
                     Nfdc nfdc = new Nfdc();
                     int faceId = 0;
+                    sleep(5000);
                     faceId = nfdc.faceCreate("udp4://192.168.49.255");
                     //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
                     //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
@@ -558,34 +607,23 @@ public class KebappService extends Service implements
             @Override
             public void onSuccess() {
                 Log.d(TAG,"Connecting to service");
-
-              //  ReceiverMulticastAsyncTask task = new ReceiverMulticastAsyncTask();
-              //  task.execute();
-               /* new Thread(new Runnable() {
+                new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        DatagramSocket clientSocket=null;
                         try {
-                            clientSocket = new DatagramSocket(5454);
-                            byte[] receiveData = new byte[1024];
-                            byte[] sendData = new byte[1024];
-                            while(true)
-                            {
-                                DatagramPacket receivePacket = new     DatagramPacket(receiveData,receiveData.length);
-                                clientSocket.receive(receivePacket);
-                                String sentence = new String(receivePacket.getData(),0,receivePacket.getLength());
-                                InetAddress IPAddress = receivePacket.getAddress();
-                                int port = receivePacket.getPort();
-                                Log.d(TAG,"MESSAGE RECEIVED  "+sentence+"  "+IPAddress+"         "+port);
-                            }
-                        } catch (IOException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
+                            Nfdc nfdc = new Nfdc();
+                            int faceId = 0;
+                            sleep(5000);
+                            faceId = nfdc.faceCreate("udp4://192.168.49.255");
+                            //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
+                            //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
+                            nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
+                            nfdc.shutdown();
+                        } catch (Exception e) {
+                            Log.d(TAG, "Error " + e);
                         }
                     }
-                }).start();*/
-
-
+                }).start();
             }
 
             @Override
@@ -597,7 +635,7 @@ public class KebappService extends Service implements
 
     }
 
-    @Override
+    /*@Override
     public void handleLoadPackage(LoadPackageParam lpparam) {
         try {
             Log.d(TAG, "handleloadPackage ");
@@ -625,7 +663,7 @@ public class KebappService extends Service implements
         } catch (Throwable t) {
             XposedBridge.log(t);
         }
-    }
+    }*/
 
     @Override
     public void onConnectionInfoAvailable(WifiP2pInfo p2pInfo) {
@@ -635,35 +673,14 @@ public class KebappService extends Service implements
          * client socket for every client. This is handled by {@code
          * GroupOwnerSocketHandler}
          */
-        //MyListFragment fragment = (MyListFragment) getFragmentManager()
-        //        .findFragmentByTag("services");
         Log.d(TAG, "Connected info "+ p2pInfo);
         info = p2pInfo;
         if (p2pInfo.isGroupOwner) {
             Log.d(TAG, "Connected as group owner "+ p2pInfo.groupOwnerAddress.getHostAddress());
-          /*  try {
-                handler = new GroupOwnerSocketHandler(
-                        ((MessageTarget) this).getHandler());
-                handler.start();
-            } catch (IOException e) {
-                Log.d(TAG,
-                        "Failed to create a server thread - " + e.getMessage());
-                return;
-            }*/
         } else {
             Log.d(TAG, "Connected as peer " + p2pInfo.groupOwnerAddress.getHostAddress());
-           /*  handler = new ClientSocketHandler(
-                    ((MessageTarget) this).getHandler(),
-                    p2pInfo.groupOwnerAddress);
-            handler.start();*/
+
         }
-        // chatFragment = new WiFiChatFragment();
-        //getFragmentManager().beginTransaction()
-        //        .replace(R.id.container_root, chatFragment).commit();
-        //peersList.addItems(p2pInfo);
-        //statusTxtView.setVisibility(View.GONE);
-
-
 
     }
     @Override
@@ -672,13 +689,6 @@ public class KebappService extends Service implements
         // Out with the old, in with the new.
         peers.clear();
         peers.addAll(peerList.getDeviceList());
-
-        // If an AdapterView is backed by this data, notify it
-        // of the change.  For instance, if you have a ListView of available
-        // peers, trigger an update.
-        // ((WiFiPeerListAdapter) getListAdapter()).notifyDataSetChanged();
-
-      //  peersList.clearItems();
         ArrayList<String> list = new ArrayList<String>();
         for(int i= 0;i<peers.size();i++)
         {
@@ -702,7 +712,6 @@ public class KebappService extends Service implements
         }
 
     }
-
 
 
     public static KeyChain buildTestKeyChain() throws net.named_data.jndn.security.SecurityException {
@@ -784,5 +793,17 @@ public class KebappService extends Service implements
             //do whatever...
         }
     }
+
+        private Runnable mServiceBroadcastingRunnable = new Runnable() {
+        @Override
+        public void run() {
+         //   Log.d(TAG,"Start scan");
+            apManager.startScan();
+
+            if(kapp.getServiceEnabled())mServiceBroadcastingHandler
+                    .postDelayed(mServiceBroadcastingRunnable, SERVICE_BROADCASTING_INTERVAL);
+        }
+    };
+
 
 }

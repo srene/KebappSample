@@ -19,6 +19,7 @@ public class KebappApplication extends Application {
     private String myAddress, myDeviceName, ownerAddress, ownerName;
     private ArrayList<String> selectedPhotoPaths;
     private boolean enabled;
+    private int netId;
 
     public static KeyChain keyChain = buildTestKeyChain();
 
@@ -71,6 +72,15 @@ public class KebappApplication extends Application {
         this.deviceList = deviceList;
     }
 
+    public int getNetId()
+    {
+        return netId;
+    }
+
+    public void setNetId(int netId)
+    {
+        this.netId = netId;
+    }
 
     public static KeyChain buildTestKeyChain() {
         MemoryIdentityStorage identityStorage = new MemoryIdentityStorage();

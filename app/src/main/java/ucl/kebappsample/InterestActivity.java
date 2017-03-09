@@ -166,7 +166,7 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
 
                 if (((CheckBox) v).isChecked()) {
                     Log.d(TAG, "Checkbox is checked");
-                    mServer.startRegistrationAndDiscovery();
+                    mServer.startKebapp();
                     // Intent intent = new Intent(InterestActivity.this, KebappService.class);
                     // startService(intent);
                     app.setServiceEnabled(true);
@@ -331,15 +331,15 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
         lp.weight = 0;
         fragment.getView().setLayoutParams(lp);
 
-        if (isNetworkAvailable(getApplicationContext())) {
-            Log.d(TAG,"COnnected ");
+       /* if (isNetworkAvailable(getApplicationContext())) {
+            Log.d(TAG,"Connected ");
             SenderLocalAsyncTask task = new SenderLocalAsyncTask((KebappApplication) getApplication(), getApplicationContext());
             task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-        } else {
+        } else {*/
             Log.d(TAG,"Not connected ");
             RequestDeviceListTask task = new RequestDeviceListTask((KebappApplication) getApplication(), getApplicationContext());
             task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-        }
+        //}
 
     }
 

@@ -133,7 +133,6 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
     }
 
-
     private byte[] getLocalIPAddress() {
         try {
             for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
@@ -144,7 +143,6 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
                         if (inetAddress instanceof Inet4Address) { // fix for Galaxy Nexus. IPv4 is easy to use :-)
                             return inetAddress.getAddress();
                         }
-                        //return inetAddress.getHostAddress().toString(); // Galaxy Nexus returns IPv6
                     }
                 }
             }
@@ -169,9 +167,8 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
     }
 
     private class RequestOwner extends AsyncTask<Void, Void, Void> {
+
         private InetAddress groupOwnerAddress;
-        //private ProducerActivityFragment fragment;
-        //private Face mFace;
 
         private String returnData = "No return data";
 
@@ -186,14 +183,11 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
 
                     try {
                         groupOwnerAddress = info.groupOwnerAddress;
-                        //fragment = (ProducerActivityFragment)
-                        //        mProducerActivity.getFragmentManager().findFragmentById(R.id.producer_fragment);
+
                         oAddress = groupOwnerAddress.getHostAddress();
                         isOwner = info.isGroupOwner;
-                        //mFace = new Face("localhost");
                         KeyChain keyChain = InterestActivity.buildTestKeyChain();
-                        //mFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
-                        // String name = groupOwnerAddress.getHostName();
+
                         int mPort = 3000;
                         if (!isOwner) {
                             localIP = getDottedDecimalIP(getLocalIPAddress());
