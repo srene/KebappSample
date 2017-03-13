@@ -19,7 +19,9 @@ public class KebappApplication extends Application {
     private String myAddress, myDeviceName, ownerAddress, ownerName;
     private ArrayList<String> selectedPhotoPaths;
     private boolean enabled;
-    private int netId;
+    private int netId=-1;
+    private int p2pfaceId=-1;
+    private int faceId=-1;
 
     public static KeyChain keyChain = buildTestKeyChain();
 
@@ -82,6 +84,13 @@ public class KebappApplication extends Application {
         this.netId = netId;
     }
 
+    public int getWifiDirectFaceId() { return p2pfaceId;}
+
+    public void setWifiDirectFaceId(int p2pfaceId) { this.p2pfaceId = p2pfaceId;}
+
+    public int getWifiFaceId() { return faceId;}
+
+    public void setWifiFaceId(int faceId) { this.faceId = faceId;}
     public static KeyChain buildTestKeyChain() {
         MemoryIdentityStorage identityStorage = new MemoryIdentityStorage();
         MemoryPrivateKeyStorage privateKeyStorage = new MemoryPrivateKeyStorage();

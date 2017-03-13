@@ -104,6 +104,17 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
             }
         });
 
+        if ( ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION ) != PackageManager.PERMISSION_GRANTED ) {
+
+            ActivityCompat.requestPermissions(this, new String[] {  Manifest.permission.ACCESS_COARSE_LOCATION  },
+                    MY_PERMISSION_ACCESS_COARSE_LOCATION );
+        }
+
+        String[] PERMS_INITIAL={
+                Manifest.permission.ACCESS_FINE_LOCATION,
+        };
+        ActivityCompat.requestPermissions(this, PERMS_INITIAL, 127);
+
 
         enableCheck = (CheckBox) this.findViewById(R.id.checkBox);
         transit = (CheckBox) this.findViewById(R.id.transit);
@@ -291,11 +302,7 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
     public void onConnected(Bundle connectionHint) {
         Log.d(TAG, "On connected");
         Location mLastLocation;
-        if ( ContextCompat.checkSelfPermission( this, Manifest.permission.ACCESS_COARSE_LOCATION ) != PackageManager.PERMISSION_GRANTED ) {
 
-            ActivityCompat.requestPermissions( this, new String[] {  Manifest.permission.ACCESS_COARSE_LOCATION  },
-                    MY_PERMISSION_ACCESS_COARSE_LOCATION );
-        }
         Log.d(TAG,"Set location");
 
         mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);

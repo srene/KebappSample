@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WpsInfo;
@@ -24,6 +25,7 @@ import android.net.wifi.p2p.WifiP2pManager.PeerListListener;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Binder;
@@ -148,6 +150,7 @@ public class KebappService extends Service implements
 
         filter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
         filter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
+        filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
 
         apManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
         kapp = (KebappApplication)getApplication();
@@ -318,6 +321,26 @@ public class KebappService extends Service implements
         apManager.disconnect();
 
         apManager.removeNetwork(kapp.getNetId());
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Nfdc nfdc = new Nfdc();
+                    int faceId = kapp.getWifiFaceId();
+                    if(faceId!=-1) {
+                        Log.d(TAG,"Face destroy");
+                        nfdc.ribUnregisterPrefix(new Name("/kebapp/maps/routefinder/"),faceId);
+                        nfdc.faceDestroy(faceId);
+                    } else {
+                        Log.d(TAG,"No face");
+                    }
+                } catch (Exception e) {
+                    Log.d(TAG, "Error " + e);
+                }
+            }
+        }).start();
+
         //if(isAPRegistered) unregisterReceiver(this.apReceiver);
 
     }
@@ -331,12 +354,14 @@ public class KebappService extends Service implements
             public void run() {
                 try {
                     Nfdc nfdc = new Nfdc();
-                    nfdc.faceDestroy(app.);
-                    List<FaceStatus> faceList = nfdc.faceList();
-                    Iterator<FaceStatus> faceIterator = faceList.iterator();
-                    for(FaceStatus f : faceList)
-                        Log.d(TAG,"Face"+f.getLocalUri());
-
+                    int faceId = kapp.getWifiDirectFaceId();
+                    if(faceId!=-1) {
+                        Log.d(TAG,"Face destroy");
+                        nfdc.ribUnregisterPrefix(new Name("/kebapp/maps/routefinder/"),faceId);
+                        nfdc.faceDestroy(faceId);
+                    } else {
+                        Log.d(TAG,"No face");
+                    }
                 } catch (Exception e) {
                     Log.d(TAG, "Error " + e);
                 }
@@ -402,10 +427,10 @@ public class KebappService extends Service implements
     public void startKebapp ()
     {
 
-
+       // apManager.disconnect();
         apManager.startScan();
-       // apManager.setWifiEnabled(false);
-       // apManager.setWifiEnabled(true);
+      //  apManager.setWifiEnabled(false);
+      //  apManager.setWifiEnabled(true);
         mServiceBroadcastingHandler.postDelayed(mServiceBroadcastingRunnable, SERVICE_BROADCASTING_INTERVAL);
         startRegistrationAndDiscovery();
         isAPRegistered = true;
@@ -556,9 +581,11 @@ public class KebappService extends Service implements
                     Log.d(TAG,"IP "+ipAddress);
                     sleep(5000);
                     faceId = nfdc.faceCreate("udp4://"+ipAddress);
+                    kapp.setWifiFaceId(faceId);
                     //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
                     //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
                     nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
+
                     nfdc.shutdown();
                 } catch (Exception e) {
                     Log.d(TAG, "Error " + e);
@@ -585,45 +612,13 @@ public class KebappService extends Service implements
                         }
                     });
 */
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Nfdc nfdc = new Nfdc();
-                    int faceId = 0;
-                    sleep(5000);
-                    faceId = nfdc.faceCreate("udp4://192.168.49.255");
-                    //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
-                    //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
-                    nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
-                    nfdc.shutdown();
-                } catch (Exception e) {
-                    Log.d(TAG, "Error " + e);
-                }
-            }
-        }).start();
+
         manager.connect(channel, config, new ActionListener() {
 
             @Override
             public void onSuccess() {
                 Log.d(TAG,"Connecting to service");
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            Nfdc nfdc = new Nfdc();
-                            int faceId = 0;
-                            sleep(5000);
-                            faceId = nfdc.faceCreate("udp4://192.168.49.255");
-                            //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
-                            //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
-                            nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
-                            nfdc.shutdown();
-                        } catch (Exception e) {
-                            Log.d(TAG, "Error " + e);
-                        }
-                    }
-                }).start();
+
             }
 
             @Override
@@ -677,10 +672,31 @@ public class KebappService extends Service implements
         info = p2pInfo;
         if (p2pInfo.isGroupOwner) {
             Log.d(TAG, "Connected as group owner "+ p2pInfo.groupOwnerAddress.getHostAddress());
+
         } else {
             Log.d(TAG, "Connected as peer " + p2pInfo.groupOwnerAddress.getHostAddress());
 
         }
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Nfdc nfdc = new Nfdc();
+                    int faceId = 0;
+                    // sleep(5000);
+                    faceId = nfdc.faceCreate("udp4://192.168.49.255");
+                    kapp.setWifiDirectFaceId(faceId);
+                    //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
+                    //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
+                    nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
+                    nfdc.shutdown();
+                    Log.d(TAG,"Face created "+ faceId + " " + kapp.getWifiDirectFaceId());
+                } catch (Exception e) {
+                    Log.d(TAG, "Error " + e);
+                }
+            }
+        }).start();
+
 
     }
     @Override
@@ -797,9 +813,13 @@ public class KebappService extends Service implements
         private Runnable mServiceBroadcastingRunnable = new Runnable() {
         @Override
         public void run() {
-         //   Log.d(TAG,"Start scan");
-            apManager.startScan();
-
+            Log.d(TAG,"Start scan");
+           // apManager.startScan();
+           // apManager.reconnect();
+            while(apManager.startScan()==false){
+                Log.d(TAG,"Start scan failed");
+                apManager.startScan();
+            }
             if(kapp.getServiceEnabled())mServiceBroadcastingHandler
                     .postDelayed(mServiceBroadcastingRunnable, SERVICE_BROADCASTING_INTERVAL);
         }

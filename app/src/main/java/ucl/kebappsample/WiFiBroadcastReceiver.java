@@ -72,9 +72,17 @@ public class WiFiBroadcastReceiver extends BroadcastReceiver {
      * @param service activity associated with the receiver
     x
      */
+
+    public WiFiBroadcastReceiver()
+    {
+        Log.d(TAG,"Receiver1");
+
+    }
     public WiFiBroadcastReceiver(WifiManager manager,
                                  Service service, KebappApplication app) {
         super();
+        Log.d(TAG,"Receiver2");
+
         this.wifiManager = manager;
         //this.channel = channel;
         this.service = service;
@@ -95,7 +103,7 @@ public class WiFiBroadcastReceiver extends BroadcastReceiver {
         String action = intent.getAction();
         this.context = context;
         BroadcastReceiver awaitIPAddress = null;
-       // Log.d(TAG,"WiFiBroadcastReceiver onreceive");
+        Log.d(TAG,"WiFiBroadcastReceiver onreceive "+action);
         if(app.getServiceEnabled()) {
             if (WifiManager.SUPPLICANT_STATE_CHANGED_ACTION.equals(action)) {
                 SupplicantState state = intent.getParcelableExtra(WifiManager.EXTRA_NEW_STATE);
@@ -115,11 +123,13 @@ public class WiFiBroadcastReceiver extends BroadcastReceiver {
                     Log.d(TAG, "Connected");
                 } else if (SupplicantState.isValidState(state)
                         && state == SupplicantState.DISCONNECTED) {
-                    ks.startRegistrationAndDiscovery();
+                   // ks.disconnectAP();
+                   // ks.startRegistrationAndDiscovery();
                     Log.d(TAG, "Disconnected");
                 }
             } //else
             if (WifiManager.SCAN_RESULTS_AVAILABLE_ACTION.equals(action)) {
+             //   Log.d(TAG, "Scan results available");
                 //ScanWiFiActivity a = ScanWiFiActivity.instance();
                 //WifiManager w = (WifiManager) context
                 //        .getSystemService(Context.WIFI_SERVICE);
@@ -129,14 +139,20 @@ public class WiFiBroadcastReceiver extends BroadcastReceiver {
                 //l.contains()
                 for (ScanResult r : l) {
                     //use r.SSID or r.BSSID to identify your home network and take action
-                    //Log.d(TAG, r.SSID + "" + r.level + "\r\n");
+               //     Log.d(TAG, r.SSID + "" + r.level + "\r\n");
                     if (r.SSID.equals(ssid) && !isConnectedViaWifi()) {
                         Log.d(TAG, "Connect to Pi3");
                         int networkId = wifiManager.addNetwork(wifiConfiguration);
+                        Log.d(TAG, "networkid "+ networkId);
                         if (networkId != -1) {
                             wifiManager.disconnect();
                             wifiManager.enableNetwork(networkId, true);
-                            wifiManager.reconnect();
+                            if(wifiManager.reconnect()==false)
+                            {
+                                Log.d(TAG,"Reconnect failed");
+                            } else {
+                                Log.d(TAG,"Reconnect success");
+                            }
                             app.setNetId(networkId);
                             // Use this to permanently save this network
                             // Otherwise, it will disappear after a reboot
