@@ -293,6 +293,7 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
     @Override
     public void onDestroy() {
         super.onDestroy();
+        Log.d(TAG,"Ondestroy");
         Intent intent = new Intent(InterestActivity.this, KebappService.class);
         stopService(intent);
         System.exit(0);
