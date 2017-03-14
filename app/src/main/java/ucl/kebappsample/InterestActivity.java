@@ -47,6 +47,7 @@ import net.named_data.jndn.Face;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.Name;
 import net.named_data.jndn.OnData;
+import net.named_data.jndn.OnInterest;
 import net.named_data.jndn.OnTimeout;
 import net.named_data.jndn.encoding.EncodingException;
 import net.named_data.jndn.security.KeyChain;
@@ -54,6 +55,7 @@ import net.named_data.jndn.security.SecurityException;
 import net.named_data.jndn.security.identity.IdentityManager;
 import net.named_data.jndn.security.identity.MemoryIdentityStorage;
 import net.named_data.jndn.security.identity.MemoryPrivateKeyStorage;
+import net.named_data.jndn.transport.Transport;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -62,7 +64,9 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.util.HashMap;
 
-import ucl.kebappsample.KebappService.LocalBinder;
+import ucl.kebappsample.*;
+
+import static com.google.common.collect.ComparisonChain.start;
 
 public class InterestActivity extends FragmentActivity implements OnMapReadyCallback,ConnectionCallbacks {
 
@@ -70,16 +74,17 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
 
     private TextView statusTxtView;
     private TextView resultTxtView;
-    private Button button, button2;
+    private Button button, button2, button3;
     private EditText source, dest;
-    private CheckBox enableCheck;
+    private CheckBox enableCheck, enableCheckDirect;
     private CheckBox transit,driving,walking;
     private String mode;
     private GoogleMap map;
     private SupportMapFragment fragment;
     private GoogleApiClient mGoogleApiClient;
     private static final int MY_PERMISSION_ACCESS_COARSE_LOCATION = 11;
-    private KebappService mServer;
+    private KebappServiceAp mServer;
+    private KebappServiceDirect mServerDirect;
     private KebappApplication app;
 
 
@@ -117,6 +122,7 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
 
 
         enableCheck = (CheckBox) this.findViewById(R.id.checkBox);
+        enableCheckDirect = (CheckBox) this.findViewById(R.id.checkBox3);
         transit = (CheckBox) this.findViewById(R.id.transit);
         driving = (CheckBox) this.findViewById(R.id.driving);
         walking = (CheckBox) this.findViewById(R.id.walking);
@@ -193,6 +199,30 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
             }
         });
 
+        enableCheckDirect.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                Log.d(TAG, "Checkbox listen");
+
+                if (((CheckBox) v).isChecked()) {
+                    Log.d(TAG, "Checkbox is checked");
+                    mServerDirect.startRegistrationAndDiscovery();
+                    // Intent intent = new Intent(InterestActivity.this, KebappService.class);
+                    // startService(intent);
+                    app.setServiceDirectEnabled(true);
+
+                } else {
+                    mServerDirect.disconnect();
+                    Log.d(TAG, "Checkbox is not checked");
+                    app.setServiceDirectEnabled(false);
+                    // Intent intent = new Intent(InterestActivity.this, KebappService.class);
+                    //  stopService(intent);
+                }
+
+            }
+        });
+
         button2 = (Button) this.findViewById(R.id.button2);
         button2.setEnabled(true);
         button2.setOnClickListener(new View.OnClickListener() {
@@ -200,6 +230,16 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
             public void onClick(View v) {
                 Intent intent = new Intent(InterestActivity.this, DeviceListActivity.class);
                 startActivity(intent);
+            }
+        });
+
+
+        button3 = (Button) this.findViewById(R.id.button3);
+        button3.setEnabled(false);
+        button3.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
             }
         });
 
@@ -215,27 +255,42 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
         }
         mGoogleApiClient.connect();
 
-        Intent intent = new Intent(InterestActivity.this, KebappService.class);
+        Intent intent = new Intent(InterestActivity.this, KebappServiceAp.class);
         bindService(intent, mConnection, BIND_AUTO_CREATE);
         startService(intent);
 
-
+        Intent intentDirect = new Intent(InterestActivity.this, KebappServiceDirect.class);
+        bindService(intentDirect, mConnectionDirect, BIND_AUTO_CREATE);
+        startService(intentDirect);
     }
 
     ServiceConnection mConnection = new ServiceConnection() {
 
         public void onServiceDisconnected(ComponentName name) {
-           // Toast.makeText(Client.this, "Service is disconnected", 1000).show();
-            mServer = null;
+                mServerDirect = null;
         }
 
         public void onServiceConnected(ComponentName name, IBinder service) {
            // Toast.makeText(Client.this, "Service is connected", 1000).show();
-            LocalBinder mLocalBinder = (LocalBinder)service;
-            mServer = mLocalBinder.getServerInstance();
+            Log.d(TAG,"Name " + name.getClassName() + " " +KebappServiceAp.class.getName()+  " " + KebappServiceDirect.class.getName());
+                KebappServiceAp.LocalBinder mLocalBinder = (KebappServiceAp.LocalBinder)service;
+                mServer = mLocalBinder.getServerInstance();
         }
     };
 
+    ServiceConnection mConnectionDirect = new ServiceConnection() {
+
+        public void onServiceDisconnected(ComponentName name) {
+            mServerDirect = null;
+        }
+
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            // Toast.makeText(Client.this, "Service is connected", 1000).show();
+            Log.d(TAG,"Name " + name.getClassName() + " " +KebappServiceAp.class.getName()+  " " + KebappServiceDirect.class.getName());
+            KebappServiceDirect.LocalBinder mLocalBinder = (KebappServiceDirect.LocalBinder)service;
+            mServerDirect = mLocalBinder.getServerInstance();
+        }
+    };
 
 
     public boolean isNetworkAvailable(final Context context) {
@@ -286,16 +341,20 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
         super.onStop();// ATTENTION: This was auto-generated to implement the App Indexing API.
 // See https://g.co/AppIndexing/AndroidStudio for more information.
         AppIndex.AppIndexApi.end(mGoogleApiClient, getIndexApiAction());
-        Intent intent = new Intent(InterestActivity.this, KebappService.class);
+        Intent intent = new Intent(InterestActivity.this, KebappServiceAp.class);
         stopService(intent);
+        Intent intentDirect = new Intent(InterestActivity.this, KebappServiceDirect.class);
+        stopService(intentDirect);
         mGoogleApiClient.disconnect();
     }
     @Override
     public void onDestroy() {
         super.onDestroy();
         Log.d(TAG,"Ondestroy");
-        Intent intent = new Intent(InterestActivity.this, KebappService.class);
+        Intent intent = new Intent(InterestActivity.this, KebappServiceAp.class);
         stopService(intent);
+        Intent intentDirect = new Intent(InterestActivity.this, KebappServiceDirect.class);
+        stopService(intentDirect);
         System.exit(0);
     }
 
@@ -630,7 +689,7 @@ public class InterestActivity extends FragmentActivity implements OnMapReadyCall
                 JSONObject jsonObject = null;
                 try {
                     Log.d(TAG,"Start request3 ");
-                    jsonObject = KebappService.getJSONObjectFromURL(urlString);
+                    jsonObject = KebappServiceAp.getJSONObjectFromURL(urlString);
                     Log.d(TAG,"Start request4 ");
                 } catch (java.net.UnknownHostException e) {
                     e.printStackTrace();

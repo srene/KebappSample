@@ -73,11 +73,7 @@ public class WiFiBroadcastReceiver extends BroadcastReceiver {
     x
      */
 
-    public WiFiBroadcastReceiver()
-    {
-        Log.d(TAG,"Receiver1");
 
-    }
     public WiFiBroadcastReceiver(WifiManager manager,
                                  Service service, KebappApplication app) {
         super();
@@ -89,8 +85,8 @@ public class WiFiBroadcastReceiver extends BroadcastReceiver {
         this.app = app;
 
         wifiConfiguration = new WifiConfiguration();
-        wifiConfiguration.SSID = "\"" + KebappService.KEBAPP_SSID + "\"";
-        wifiConfiguration.preSharedKey = "\"" + KebappService.passphrase + "\"";
+        wifiConfiguration.SSID = "\"" + KebappServiceAp.KEBAPP_SSID + "\"";
+        wifiConfiguration.preSharedKey = "\"" + KebappServiceAp.passphrase + "\"";
 
     //    Log.d(TAG,"WiFiBroadcastReceiver created");
 
@@ -108,7 +104,7 @@ public class WiFiBroadcastReceiver extends BroadcastReceiver {
             if (WifiManager.SUPPLICANT_STATE_CHANGED_ACTION.equals(action)) {
                 SupplicantState state = intent.getParcelableExtra(WifiManager.EXTRA_NEW_STATE);
                 Log.d(TAG, "Supplicant state changed " + state);
-                KebappService ks = (KebappService) service;
+                KebappServiceAp ks = (KebappServiceAp) service;
                 if (SupplicantState.isValidState(state)
                         && state == SupplicantState.COMPLETED) {
                     WifiInfo wifiInfo = wifiManager.getConnectionInfo();
@@ -118,7 +114,7 @@ public class WiFiBroadcastReceiver extends BroadcastReceiver {
                         Log.d(TAG, "Disconnect"+wifiInfo.getIpAddress() + " " + wifiIpAddress(wifiInfo.getIpAddress()));
 
                         if(!ks.isAPRegistered) {
-                            ks.disconnectWifiDirect();
+                          //  ks.disconnectWifiDirect();
                             ks.connectAp("10.0.0.1");
                             ks.isAPRegistered = true;
                         }
@@ -128,7 +124,7 @@ public class WiFiBroadcastReceiver extends BroadcastReceiver {
                         && state == SupplicantState.DISCONNECTED) {
                     if(ks.isAPRegistered) {
                         ks.disconnectAP();
-                        ks.startRegistrationAndDiscovery();
+                       // ks.startRegistrationAndDiscovery();
                         Log.d(TAG, "Disconnected");
                     }
                 }
@@ -145,12 +141,12 @@ public class WiFiBroadcastReceiver extends BroadcastReceiver {
                 for (ScanResult r : l) {
                     //use r.SSID or r.BSSID to identify your home network and take action
                //     Log.d(TAG, r.SSID + "" + r.level + "\r\n");
-                    if (r.SSID.equals(KebappService.KEBAPP_SSID) && !isConnectedViaWifi()) {
+                    if (r.SSID.equals(KebappServiceAp.KEBAPP_SSID) && !isConnectedViaWifi()) {
                         Log.d(TAG, "Connect to Pi3");
                         int networkId = wifiManager.addNetwork(wifiConfiguration);
                         Log.d(TAG, "networkid "+ networkId);
                         if (networkId != -1) {
-                          //  wifiManager.disconnect();
+                            wifiManager.disconnect();
                             wifiManager.enableNetwork(networkId, true);
                             if(wifiManager.reconnect()==false)
                             {

@@ -198,7 +198,7 @@ public class KebappService extends Service implements
                   //  Log.i(TAG, "Address " + info.groupOwnerAddress + " " + info.isGroupOwner);
 
                     // Register the prefix with the device's address
-                    mFace.registerPrefix(new Name("/kebapp/maps"), new OnInterest() {
+                    mFace.registerPrefix(new Name("/kebapp_bkp/maps"), new OnInterest() {
                         @Override
                         public void onInterest(Name name, Interest interest, Transport transport, long l) {
                             //      try {
@@ -347,7 +347,7 @@ public class KebappService extends Service implements
                         Nfdc nfdc = new Nfdc();
 
                         Log.d(TAG,"Face destroy");
-                        nfdc.ribUnregisterPrefix(new Name("/kebapp/maps/routefinder/"),faceId);
+                        nfdc.ribUnregisterPrefix(new Name("/kebapp_bkp/maps/routefinder/"),faceId);
                         nfdc.faceDestroy(faceId);
                         kapp.setWifiFaceId(-1);
                     } catch (Exception e) {
@@ -377,7 +377,7 @@ public class KebappService extends Service implements
                         Nfdc nfdc = new Nfdc();
 
                             Log.d(TAG,"Face destroy");
-                            nfdc.ribUnregisterPrefix(new Name("/kebapp/maps/routefinder/"),faceId);
+                            nfdc.ribUnregisterPrefix(new Name("/kebapp_bkp/maps/routefinder/"),faceId);
                             nfdc.faceDestroy(faceId);
 
                     } catch (Exception e) {
@@ -632,7 +632,7 @@ public class KebappService extends Service implements
                         kapp.setWifiFaceId(faceId);
                         //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
                         //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
-                        nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
+                        nfdc.ribRegisterPrefix(new Name("/kebapp_bkp/maps/routefinder/"), faceId, 0, true, false);
 
                         nfdc.shutdown();
                     } catch (Exception e) {
@@ -737,7 +737,7 @@ public class KebappService extends Service implements
                     kapp.setWifiDirectFaceId(faceId);
                     //if(!info.isGroupOwner)faceId = nfdc.faceCreate("udp4://"+info.groupOwnerAddress.getHostAddress());
                     //        else faceId = nfdc.faceCreate("udp://"+app.getMyAddress());
-                    nfdc.ribRegisterPrefix(new Name("/kebapp/maps/routefinder/"), faceId, 0, true, false);
+                    nfdc.ribRegisterPrefix(new Name("/kebapp_bkp/maps/routefinder/"), faceId, 0, true, false);
                     nfdc.shutdown();
                     Log.d(TAG,"Face created "+ faceId + " " + kapp.getWifiDirectFaceId());
                 } catch (Exception e) {
@@ -772,7 +772,7 @@ public class KebappService extends Service implements
         Log.d(TAG, "Peers "+peers.size());
         if (peers.size() == 0) {
             Log.d(TAG, "No devices found");
-            if(app.getServiceEnabled())startRegistrationAndDiscovery();
+            if(app.getServiceDirectEnabled())startRegistrationAndDiscovery();
             return;
         }
 

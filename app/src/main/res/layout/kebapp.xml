@@ -45,22 +45,21 @@
             android:layout_width="fill_parent"
             android:layout_height="fill_parent"
             android:orientation="horizontal">
-        <fragment
-            android:id="@+id/map"
-            android:layout_width="match_parent"
-            android:layout_height="fill_parent"
-            android:layout_weight="0"
-            class="com.google.android.gms.maps.SupportMapFragment" />
+            <fragment
+                android:id="@+id/map"
+                android:layout_width="match_parent"
+                android:layout_height="fill_parent"
+                android:layout_weight="0"
+                class="com.google.android.gms.maps.SupportMapFragment" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="fill_parent"
-            android:layout_weight="1"
-            android:id="@+id/result"
-            android:text=""
-            android:layout_gravity="center" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="fill_parent"
+                android:layout_weight="1"
+                android:id="@+id/result"
+                android:text=""
+                android:layout_gravity="center" />
         </LinearLayout>
-
         <!--<fragment
             android:id="@+id/map"
             android:layout_width="match_parent"
@@ -207,21 +206,40 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Send request" />
+
             <Button
                 android:id="@+id/button2"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Devices list"/>
+                android:layout_weight="1"
+                android:enabled="false"
+                android:text="Devices list" />
+
+            <Button
+                android:id="@+id/button3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:enabled="false"
+                android:text="Faces" />
 
         </LinearLayout>
 
         <CheckBox
+            android:id="@+id/checkBox"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Enable Kebapp"
-            android:id="@+id/checkBox"
             android:checked="false"
-            android:gravity="center_horizontal"/>
+            android:gravity="center_horizontal"
+            android:text="Enable Kebapp Wifi" />
+
+        <CheckBox
+            android:id="@+id/checkBox3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="false"
+            android:gravity="center_horizontal"
+            android:text="Enable Kebapp WifiDirect" />
     </LinearLayout>
 
 

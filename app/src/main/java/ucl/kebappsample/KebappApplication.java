@@ -18,7 +18,7 @@ public class KebappApplication extends Application {
     private ArrayList<String> deviceList;
     private String myAddress, myDeviceName, ownerAddress, ownerName;
     private ArrayList<String> selectedPhotoPaths;
-    private boolean enabled;
+    private boolean enabled,directEnabled;
     private int netId=-1;
     private int p2pfaceId=-1;
     private int faceId=-1;
@@ -38,6 +38,9 @@ public class KebappApplication extends Application {
 
     public boolean getServiceEnabled() {return enabled; };
     public void setServiceEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public boolean getServiceDirectEnabled() {return directEnabled; };
+    public void setServiceDirectEnabled(boolean directEnabled) { this.directEnabled = directEnabled; }
     public String getMyAddress() {
         return myAddress;
     }
